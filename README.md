@@ -6,11 +6,9 @@
 A cutting-edge aquarium control system that will revolutionize your underwater world! 🎮
 
 ### Features to expect:
-- 🌡️ Temperature monitoring and control
-- 💧 Water quality management
+- 🌡️ Temperature monitoring
 - 💡 Smart lighting system
-- 🕒 Automated feeding schedules
-- 📱 Mobile app connectivity
+- 🤜 Better Web UI
 
 Stay tuned for more updates! 🚀
 
