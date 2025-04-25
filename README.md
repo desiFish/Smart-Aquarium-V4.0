@@ -10,6 +10,12 @@ A cutting-edge aquarium control system that will revolutionize your underwater w
 - 💡 Smart lighting system
 - 🤜 Better Web UI
 
+## 📱 Preview
+
+| Main Control | Settings |
+|-------------|----------|
+| ![Main Control Page](/index.png) | ![Settings Page](/settings.png) |
+
 Stay tuned for more updates! 🚀
 
 _Project under development_ 🛠️
