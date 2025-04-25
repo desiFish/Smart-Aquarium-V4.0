@@ -1,6 +1,12 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
+#include <Preferences.h>
+#include <ArduinoJson.h>
+
+Preferences pref;
+
+#define SWVersion "v0.0.3-alpha"
 
 const char *ssid = "SonyBraviaX400";
 const char *password = "79756622761";
@@ -21,6 +27,20 @@ void setup()
   Serial.begin(115200);
   pinMode(ledPin, OUTPUT);
 
+  pref.begin("storage", false);
+
+  if (!pref.isKey("name1"))
+    pref.putString("name1", "Relay1");
+
+  if (!pref.isKey("name2"))
+    pref.putString("name2", "Relay2");
+
+  if (!pref.isKey("name3"))
+    pref.putString("name3", "Relay3");
+
+  if (!pref.isKey("name4"))
+    pref.putString("name4", "Relay4");
+
   if (!LittleFS.begin(true))
   {
     Serial.println("An Error has occurred while mounting LittleFS");
@@ -38,46 +58,76 @@ void setup()
   // Serve static files from LittleFS
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
-  // API endpoints for LED control
-  server.on("/api/led", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(200, "text/plain", getLEDState()); });
+  server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(200, "text/plain", "true"); });
+  server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(200, "text/plain", SWVersion); });
 
-  server.on("/api/led/toggle", HTTP_POST, [](AsyncWebServerRequest *request)
-            {
-    digitalWrite(ledPin, !digitalRead(ledPin));
-    request->send(200, "text/plain", getLEDState()); });
+  // Server endpoints for RELAY names
+  for (byte i = 1; i < 5; i++)
+  {
+    String endpoint = "/api/led" + String(i) + "/name";
+    byte ledIndex = i; // Rename to avoid conflict with data index parameter
 
-  server.on("/api/led/off", HTTP_POST, [](AsyncWebServerRequest *request)
-            {
-    digitalWrite(ledPin, LOW);
-    request->send(200, "text/plain", "OFF"); });
+    // GET endpoint
+    server.on(endpoint.c_str(), HTTP_GET, [ledIndex, &pref](AsyncWebServerRequest *request)
+              {
+      String name = pref.getString(("name" + String(ledIndex)).c_str());
+      request->send(200, "text/plain", name); });
 
-  server.on("/api/timer", HTTP_POST, [](AsyncWebServerRequest *request)
-            {
-    if (request->hasParam("seconds", true)) {
-        String seconds = request->getParam("seconds", true)->value();
-        timerDuration = seconds.toInt() * 1000; // Convert to milliseconds
-        if (timerDuration > 0) {
-            digitalWrite(ledPin, LOW); // Turn off LED when timer starts
-            timerStarter = millis();
-        } else {
-            timerDuration = 0;
+    // POST endpoint for setting name on SETTINGS>HTML
+    server.on(endpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, // Empty handler for POST request
+              NULL, [ledIndex, &pref](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
+              {
+        String json = String((char*)data);
+        StaticJsonDocument<200> doc;
+        DeserializationError error = deserializeJson(doc, json);
+        
+        if (error) {
+          request->send(400, "text/plain", "Invalid JSON");
+          return;
         }
-        request->send(200, "text/plain", "Timer set");
-    } });
+
+        if (!doc.containsKey("name")) {
+          request->send(400, "text/plain", "Missing name field");
+          return;
+        }
+
+        String newName = doc["name"].as<String>();
+        if (newName.length() == 0) {
+          request->send(400, "text/plain", "Name cannot be empty");
+          return;
+        }
+
+        pref.putString(("name" + String(ledIndex)).c_str(), newName);
+        request->send(200, "text/plain", "Name updated"); });
+  }
+
+  // Server endpoints for RELAY states (ENABLED OR DISABLED)
+  for (byte i = 1; i < 5; i++)
+  {
+    String endpoint = "/api/led" + String(i) + "/system/state";
+    server.on(endpoint.c_str(), HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+      AsyncResponseStream *response = request->beginResponseStream("application/json");
+      response->print("{\"enabled\": false}");  // true or false 
+      request->send(response); });
+  }
+
+  // Server endpoints for RELAY ON/OFF status
+  for (byte i = 1; i < 5; i++)
+  {
+    String endpoint = "/api/led" + String(i) + "/status";
+    server.on(endpoint.c_str(), HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                request->send(200, "text/plain", "ON"); // Return "ON" or "OFF" based on actual RELAY state
+              });
+  }
 
   server.begin();
+  // pref.end();
 }
 
 void loop()
 {
-  if (timerDuration > 0)
-  {
-    if (millis() - timerStarter >= timerDuration)
-    {
-      digitalWrite(ledPin, HIGH);
-      timerDuration = 0; // Reset timer
-    }
-  }
-  // Nothing needed in loop
 }

@@ -27,13 +27,30 @@ A cutting-edge aquarium control system that will revolutionize your underwater w
 
 ## 📱 Preview
 
-| Main Control | Settings |
-|-------------|----------|
-| ![Main Control Page](/index.png) | ![Settings Page](/settings.png) |
+<table>
+<tr>
+    <td align="center" width="50%">
+        <img src="/index.png" alt="Main Control Page" width="100%">
+        <br>Main Control
+    </td>
+    <td align="center" width="50%">
+        <img src="/settings.png" alt="Settings Page" width="100%">
+        <br>Settings
+    </td>
+</tr>
+<tr>
+    <td align="center" colspan="2">
+        <img src="/index_new.png" alt="New Control Interface" width="50%">
+        <br>New Interface
+    </td>
+</tr>
+</table>
 
 Stay tuned for more updates! 🚀
 
 Resource: https://randomnerdtutorials.com/arduino-ide-2-install-esp32-littlefs/
+
+Select board in Arduino: ESP32 Dev Module
 
 ## 📜 License
 
