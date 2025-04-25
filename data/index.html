@@ -505,6 +505,37 @@
             padding: 4px 0;
             border-top: 1px solid #252525;
         }
+
+        .navbar {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+            padding: 8px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-btn {
+            background: #252525;
+            color: #2196F3;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: #2196F3;
+            color: white;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 
@@ -518,6 +549,10 @@
             </div>
         </div>
     </div>
+
+    <nav class="navbar">
+        <button class="nav-btn" onclick="window.location.href='settings.html'">Settings</button>
+    </nav>
 
     <div class="grid-container">
         <div id="led1" class="controls-container">
