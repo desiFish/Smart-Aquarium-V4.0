@@ -1,5 +1,5 @@
 # Project_Mina 🐠
-[![GitHub stars](https://img.shields.io/github/stars/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/stargazers) on ESP32
+[![GitHub stars](https://img.shields.io/github/stars/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/network)
 [![GitHub issues](https://img.shields.io/github/issues/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/issues)
 [![GitHub license](https://img.shields.io/github/license/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/blob/main/LICENSE)
