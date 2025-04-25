@@ -57,5 +57,3 @@ This project is licensed under the GNU General Public License v3.0 (GPL-3.0):
 - ❌ Remove copyleft
 
 See [LICENSE](LICENSE) for the full license text.
-
-Resource: https://randomnerdtutorials.com/arduino-ide-2-install-esp32-littlefs/
