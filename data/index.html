@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>LED Control</title>
+    <title>Aquarium Control</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -99,7 +99,6 @@
         }
 
         .mode-selector {
-            display: inline-flex;
             background: #252525;
             padding: 4px;
             border-radius: 8px;
@@ -142,6 +141,36 @@
             padding: 1.2rem;
             border-radius: 8px;
             text-align: center;
+        }
+
+        #autoControl_1,
+        #autoControl_2,
+        #autoControl_3,
+        #autoControl_4 {
+            text-align: center;
+        }
+
+        #autoControl_1 div,
+        #autoControl_2 div,
+        #autoControl_3 div,
+        #autoControl_4 div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        #autoControl_1 label,
+        #autoControl_2 label,
+        #autoControl_3 label,
+        #autoControl_4 label {
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .time-input {
+            flex: 0 1 120px;
         }
 
         #autoControl div,
@@ -228,12 +257,12 @@
         .header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin: 0 auto;
-            max-width: 500px;
+            justify-content: center;
             position: relative;
-            flex-wrap: wrap;
-            gap: 1rem;
+            width: 100%;
+            padding: 0 60px;
+            /* Add padding for connection status */
+            box-sizing: border-box;
         }
 
         .connection-status {
@@ -244,7 +273,7 @@
             align-items: center;
             gap: 5px;
             position: absolute;
-            right: 1.5rem;
+            right: 0;
         }
 
         .connection-status.online {
@@ -344,17 +373,156 @@
         @media (max-width: 600px) {
             .header {
                 flex-direction: column;
-                text-align: center;
+                gap: 1rem;
+                padding: 0;
+                /* Remove padding on mobile */
             }
 
             .connection-status {
                 position: static;
-                margin: 0 auto;
+                margin-top: 0.5rem;
             }
 
             .page-title {
                 margin-bottom: 0.5rem;
             }
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .controls-container {
+            max-width: none;
+            margin: 0;
+        }
+
+        .led-title {
+            color: #2196F3;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        #timerControl_1,
+        #timerControl_2,
+        #timerControl_3,
+        #timerControl_4 {
+            text-align: center;
+        }
+
+        #timerControl_1 div,
+        #timerControl_2 div,
+        #timerControl_3 div,
+        #timerControl_4 div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        #timerControl_1 label,
+        #timerControl_2 label,
+        #timerControl_3 label,
+        #timerControl_4 label {
+
+            text-align: right;
+        }
+
+        select {
+            flex: 0 1 120px;
+            margin: 0;
+        }
+
+        /* Remove all previous timer switch styles and replace with these clean styles */
+        .timer-switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 1rem auto;
+            width: auto;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            flex: none;
+        }
+
+        .switch-label {
+            color: #888;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            flex: none;
+        }
+
+        /* Remove these conflicting styles */
+        #timerSwitchContainer_1,
+        #timerSwitchContainer_2,
+        #timerSwitchContainer_3,
+        #timerSwitchContainer_4,
+        #timerControl_1 .switch-container,
+        #timerControl_2 .switch-container,
+        #timerControl_3 .switch-container,
+        #timerControl_4 .switch-container,
+        #timerControl_1 .switch,
+        #timerControl_2 .switch,
+        #timerControl_3 .switch,
+        #timerControl_4 .switch {
+            /* Remove all previous conflicting properties */
+        }
+
+        /* Timer Control Styles */
+        .timer-switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+
+        .timer-switch-container .switch {
+            width: 60px;
+            height: 34px;
+            margin: 0;
+            flex: none;
+        }
+
+        .timer-switch-container .switch-label {
+            color: #888;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            flex: none;
+            margin: 0;
+        }
+
+        /* Remove old timer styles */
+        #timerSwitchContainer_1,
+        #timerSwitchContainer_2,
+        #timerSwitchContainer_3,
+        #timerSwitchContainer_4,
+        #timerControl_1 .switch-container,
+        #timerControl_2 .switch-container,
+        #timerControl_3 .switch-container,
+        #timerControl_4 .switch-container {
+            /* Remove all previous properties */
         }
     </style>
 </head>
@@ -362,7 +530,7 @@
 <body>
     <div class="page-header">
         <div class="header">
-            <h2 class="page-title">LED Control</h2>
+            <h2 class="page-title">Smart Aquarium V4</h2>
             <div id="connectionStatus" class="connection-status offline">
                 <span class="connection-dot"></span>
                 <span>Offline</span>
@@ -370,267 +538,445 @@
         </div>
     </div>
 
-    <div class="controls-container">
-        <div class="status-monitor">
-            <span class="status-indicator"></span>
-            <span id="liveStatus">Checking LED status...</span>
-        </div>
+    <div class="grid-container">
+        <div id="led1" class="controls-container">
+            <h3 class="led-title">LED 1</h3>
+            <div class="status-monitor">
+                <span class="status-indicator"></span>
+                <span id="liveStatus_1">Checking LED status...</span>
+            </div>
 
-        <div class="mode-selector">
-            <input type="radio" id="modeManual" name="mode" value="manual" checked>
-            <label for="modeManual">Manual</label>
-            <input type="radio" id="modeAuto" name="mode" value="auto">
-            <label for="modeAuto">Auto</label>
-            <input type="radio" id="modeTimer" name="mode" value="timer">
-            <label for="modeTimer">Timer</label>
-        </div>
+            <div class="mode-selector">
+                <input type="radio" id="modeManual_1" name="mode_1" value="manual" checked>
+                <label for="modeManual_1">Manual</label>
+                <input type="radio" id="modeAuto_1" name="mode_1" value="auto">
+                <label for="modeAuto_1">Auto</label>
+                <input type="radio" id="modeTimer_1" name="mode_1" value="timer">
+                <label for="modeTimer_1">Timer</label>
+            </div>
 
-        <div id="manualControl" class="control-panel active">
-            <div class="switch-container">
-                <span class="switch-label">OFF</span>
-                <label class="switch">
-                    <input type="checkbox" id="ledToggle">
-                    <span class="slider"></span>
-                </label>
-                <span class="switch-label">ON</span>
+            <div id="manualControl_1" class="control-panel active">
+                <div class="switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ledToggle_1">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div id="autoControl_1" class="control-panel">
+                <div>
+                    <label>ON Time:</label>
+                    <input type="time" id="onTime_1" class="time-input">
+                </div>
+                <div>
+                    <label>OFF Time:</label>
+                    <input type="time" id="offTime_1" class="time-input">
+                </div>
+                <button id="setTime_1" class="btn-set">Set Schedule</button>
+            </div>
+
+            <div id="timerControl_1" class="control-panel">
+                <div>
+                    <label>Timer Duration:</label>
+                    <select id="timerDuration_1" onchange="updateTimerToggle(1)">
+                        <option value="0">No Timer</option>
+                        <option value="5">5 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="15">15 seconds</option>
+                    </select>
+                </div>
+                <div id="timerSwitchContainer_1" class="timer-switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="timerToggle_1">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div class="disable-control">
+                <div class="switch-container">
+                    <span class="switch-label">ENABLED</span>
+                    <label class="switch">
+                        <input type="checkbox" id="disableToggle_1">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">DISABLED</span>
+                </div>
             </div>
         </div>
 
-        <div id="autoControl" class="control-panel">
-            <div>
-                <label>ON Time:</label>
-                <input type="time" id="onTime" class="time-input">
+        <div id="led2" class="controls-container">
+            <h3 class="led-title">LED 2</h3>
+            <div class="status-monitor">
+                <span class="status-indicator"></span>
+                <span id="liveStatus_2">Checking LED status...</span>
             </div>
-            <div>
-                <label>OFF Time:</label>
-                <input type="time" id="offTime" class="time-input">
+
+            <div class="mode-selector">
+                <input type="radio" id="modeManual_2" name="mode_2" value="manual" checked>
+                <label for="modeManual_2">Manual</label>
+                <input type="radio" id="modeAuto_2" name="mode_2" value="auto">
+                <label for="modeAuto_2">Auto</label>
+                <input type="radio" id="modeTimer_2" name="mode_2" value="timer">
+                <label for="modeTimer_2">Timer</label>
             </div>
-            <button id="setTime" class="btn-set">Set Schedule</button>
+
+            <div id="manualControl_2" class="control-panel active">
+                <div class="switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ledToggle_2">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div id="autoControl_2" class="control-panel">
+                <div>
+                    <label>ON Time:</label>
+                    <input type="time" id="onTime_2" class="time-input">
+                </div>
+                <div>
+                    <label>OFF Time:</label>
+                    <input type="time" id="offTime_2" class="time-input">
+                </div>
+                <button id="setTime_2" class="btn-set">Set Schedule</button>
+            </div>
+
+            <div id="timerControl_2" class="control-panel">
+                <div>
+                    <label>Timer Duration:</label>
+                    <select id="timerDuration_2" onchange="updateTimerToggle(2)">
+                        <option value="0">No Timer</option>
+                        <option value="5">5 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="15">15 seconds</option>
+                    </select>
+                </div>
+                <div id="timerSwitchContainer_2" class="timer-switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="timerToggle_2">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div class="disable-control">
+                <div class="switch-container">
+                    <span class="switch-label">ENABLED</span>
+                    <label class="switch">
+                        <input type="checkbox" id="disableToggle_2">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">DISABLED</span>
+                </div>
+            </div>
         </div>
 
-        <div id="timerControl" class="control-panel">
-            <div>
-                <label>Timer Duration:</label>
-                <select id="timerDuration" onchange="updateTimerToggle()">
-                    <option value="0">No Timer</option>
-                    <option value="5">5 seconds</option>
-                    <option value="10">10 seconds</option>
-                    <option value="15">15 seconds</option>
-                </select>
+        <div id="led3" class="controls-container">
+            <h3 class="led-title">LED 3</h3>
+            <div class="status-monitor">
+                <span class="status-indicator"></span>
+                <span id="liveStatus_3">Checking LED status...</span>
             </div>
-            <div id="timerSwitchContainer" class="switch-container">
-                <span class="switch-label">OFF</span>
-                <label class="switch">
-                    <input type="checkbox" id="timerToggle">
-                    <span class="slider"></span>
-                </label>
-                <span class="switch-label">ON</span>
+
+            <div class="mode-selector">
+                <input type="radio" id="modeManual_3" name="mode_3" value="manual" checked>
+                <label for="modeManual_3">Manual</label>
+                <input type="radio" id="modeAuto_3" name="mode_3" value="auto">
+                <label for="modeAuto_3">Auto</label>
+                <input type="radio" id="modeTimer_3" name="mode_3" value="timer">
+                <label for="modeTimer_3">Timer</label>
+            </div>
+
+            <div id="manualControl_3" class="control-panel active">
+                <div class="switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ledToggle_3">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div id="autoControl_3" class="control-panel">
+                <div>
+                    <label>ON Time:</label>
+                    <input type="time" id="onTime_3" class="time-input">
+                </div>
+                <div>
+                    <label>OFF Time:</label>
+                    <input type="time" id="offTime_3" class="time-input">
+                </div>
+                <button id="setTime_3" class="btn-set">Set Schedule</button>
+            </div>
+
+            <div id="timerControl_3" class="control-panel">
+                <div>
+                    <label>Timer Duration:</label>
+                    <select id="timerDuration_3" onchange="updateTimerToggle(3)">
+                        <option value="0">No Timer</option>
+                        <option value="5">5 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="15">15 seconds</option>
+                    </select>
+                </div>
+                <div id="timerSwitchContainer_3" class="timer-switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="timerToggle_3">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div class="disable-control">
+                <div class="switch-container">
+                    <span class="switch-label">ENABLED</span>
+                    <label class="switch">
+                        <input type="checkbox" id="disableToggle_3">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">DISABLED</span>
+                </div>
             </div>
         </div>
 
-        <div class="disable-control">
-            <div class="switch-container">
-                <span class="switch-label">ENABLED</span>
-                <label class="switch">
-                    <input type="checkbox" id="disableToggle">
-                    <span class="slider"></span>
-                </label>
-                <span class="switch-label">DISABLED</span>
+        <div id="led4" class="controls-container">
+            <h3 class="led-title">LED 4</h3>
+            <div class="status-monitor">
+                <span class="status-indicator"></span>
+                <span id="liveStatus_4">Checking LED status...</span>
+            </div>
+
+            <div class="mode-selector">
+                <input type="radio" id="modeManual_4" name="mode_4" value="manual" checked>
+                <label for="modeManual_4">Manual</label>
+                <input type="radio" id="modeAuto_4" name="mode_4" value="auto">
+                <label for="modeAuto_4">Auto</label>
+                <input type="radio" id="modeTimer_4" name="mode_4" value="timer">
+                <label for="modeTimer_4">Timer</label>
+            </div>
+
+            <div id="manualControl_4" class="control-panel active">
+                <div class="switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ledToggle_4">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div id="autoControl_4" class="control-panel">
+                <div>
+                    <label>ON Time:</label>
+                    <input type="time" id="onTime_4" class="time-input">
+                </div>
+                <div>
+                    <label>OFF Time:</label>
+                    <input type="time" id="offTime_4" class="time-input">
+                </div>
+                <button id="setTime_4" class="btn-set">Set Schedule</button>
+            </div>
+
+            <div id="timerControl_4" class="control-panel">
+                <div>
+                    <label>Timer Duration:</label>
+                    <select id="timerDuration_4" onchange="updateTimerToggle(4)">
+                        <option value="0">No Timer</option>
+                        <option value="5">5 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="15">15 seconds</option>
+                    </select>
+                </div>
+                <div id="timerSwitchContainer_4" class="timer-switch-container">
+                    <span class="switch-label">OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="timerToggle_4">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">ON</span>
+                </div>
+            </div>
+
+            <div class="disable-control">
+                <div class="switch-container">
+                    <span class="switch-label">ENABLED</span>
+                    <label class="switch">
+                        <input type="checkbox" id="disableToggle_4">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">DISABLED</span>
+                </div>
             </div>
         </div>
     </div>
+
     <script>
-        const toggle = document.getElementById('ledToggle');
-        const status = document.getElementById('status');
-        const modeToggle = document.getElementById('modeToggle');
-        const modeStatus = document.getElementById('modeStatus');
-        const manualControl = document.getElementById('manualControl');
-        const autoControl = document.getElementById('autoControl');
-        const onTime = document.getElementById('onTime');
-        const offTime = document.getElementById('offTime');
-        const modeInputs = document.querySelectorAll('input[name="mode"]');
-        const controlPanels = document.querySelectorAll('.control-panel');
-        const timerToggle = document.getElementById('timerToggle');
-        const timerDuration = document.getElementById('timerDuration');
-        const setTimeButton = document.getElementById('setTime');
-        const liveStatus = document.getElementById('liveStatus');
-        const statusIndicator = document.querySelector('.status-indicator');
-        const connectionStatus = document.getElementById('connectionStatus');
-        const disableToggle = document.getElementById('disableToggle');
-        let isSystemEnabled = true;
-        let ledStatusInterval;
-
-        disableToggle.onclick = () => {
-            isSystemEnabled = !disableToggle.checked;
-            const controlPanels = document.querySelectorAll('.control-panel, .mode-selector');
-
-            // Update UI state
-            controlPanels.forEach(panel => {
-                panel.style.opacity = isSystemEnabled ? '1' : '0.5';
-                panel.style.pointerEvents = isSystemEnabled ? 'auto' : 'none';
-            });
-
-            // Handle LED status checking
-            if (!isSystemEnabled) {
-                clearInterval(ledStatusInterval);
-                statusIndicator.className = 'status-indicator off';
-                liveStatus.textContent = 'LED Status: Disabled';
-            } else {
-                // Immediately update status when enabled
-                updateLEDStatus();
-                // Resume interval checks
-                ledStatusInterval = setInterval(updateLEDStatus, 2000);
-                // Reset status text format
-                liveStatus.textContent = 'Checking LED status...';
-            }
-
-            sendRequest('POST', '/api/system/state', {
-                enabled: isSystemEnabled
-            });
+        // Add LED states tracking
+        const ledStates = {
+            1: { enabled: true },
+            2: { enabled: true },
+            3: { enabled: true },
+            4: { enabled: true }
         };
 
-        function sendRequest(method, url, data = null) {
-            if (!isSystemEnabled && !url.includes('/api/status')) {
-                return; // Block all requests except status check when disabled
-            }
-            const xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                if (xhr.status === 200) {
-                    updateLEDStatus(); // Update status after any action
-                }
+        // Function to initialize LED controls
+        function setupLED(ledId) {
+            const led = {
+                container: document.getElementById(`led${ledId}`),
+                modes: document.querySelectorAll(`input[name="mode_${ledId}"]`),
+                indicator: document.querySelector(`#led${ledId} .status-indicator`),
+                statusText: document.querySelector(`#liveStatus_${ledId}`),
+                toggle: document.querySelector(`#ledToggle_${ledId}`),
+                panels: {
+                    manual: document.querySelector(`#manualControl_${ledId}`),
+                    auto: document.querySelector(`#autoControl_${ledId}`),
+                    timer: document.querySelector(`#timerControl_${ledId}`)
+                },
+                disableToggle: document.querySelector(`#disableToggle_${ledId}`),
+                allControls: document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`),
+                timerDuration: document.querySelector(`#timerDuration_${ledId}`),
+                timerSwitch: document.querySelector(`#timerSwitchContainer_${ledId}`)
             };
-            xhr.open(method, url, true);
-            if (data) {
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.send(JSON.stringify(data));
-            } else {
-                xhr.send();
-            }
-        }
 
-        function updateLEDStatus() {
-            const xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                if (xhr.status === 200) {
-                    const state = xhr.responseText;
-                    statusIndicator.className = 'status-indicator ' + (state === 'ON' ? 'on' : 'off');
-                    liveStatus.textContent = `LED is currently ${state}`;
-                }
-            };
-            xhr.open('GET', '/api/led/status', true);
-            xhr.send();
-        }
-
-        function checkConnection() {
-            const xhr = new XMLHttpRequest();
-            xhr.onload = () => {
-                if (xhr.status === 200 && xhr.responseText === 'true') {
-                    connectionStatus.className = 'connection-status online';
-                    connectionStatus.querySelector('span:last-child').textContent = 'Online';
-                } else {
-                    setOfflineStatus();
-                }
-            };
-            xhr.onerror = setOfflineStatus;
-            xhr.timeout = 3000; // 3 second timeout
-            xhr.ontimeout = setOfflineStatus;
-            xhr.open('GET', '/api/status', true);
-            xhr.send();
-        }
-
-        function setOfflineStatus() {
-            connectionStatus.className = 'connection-status offline';
-            connectionStatus.querySelector('span:last-child').textContent = 'Offline';
-        }
-
-        // Replace the old LED status interval setup with variable reference
-        ledStatusInterval = setInterval(updateLEDStatus, 2000);
-
-        // Update status immediately on page load
-        updateLEDStatus();
-
-        // Check connection status every 5 seconds
-        setInterval(checkConnection, 5000);
-
-        // Initial connection check
-        checkConnection();
-
-        modeInputs.forEach(input => {
-            input.onchange = () => {
-                controlPanels.forEach(panel => panel.classList.remove('active'));
-                document.getElementById(`${input.value}Control`).classList.add('active');
-                sendRequest('POST', '/api/mode', {
-                    mode: input.value,
-                    onTime: onTime.value,
-                    offTime: offTime.value,
-                    timerDuration: timerDuration.value
-                });
-            };
-        });
-
-        function convertTo24Hour(timeStr) {
-            const date = new Date(`2000-01-01 ${timeStr}`);
-            return date.toLocaleTimeString('en-US', {
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        setTimeButton.onclick = () => {
-            if (onTime.value && offTime.value) {
-                const xhr = new XMLHttpRequest();
-                xhr.onload = () => {
-                    if (xhr.status === 200) {
-                        const response = xhr.responseText;
-                        if (response === 'true') {
-                            alert('Schedule set successfully!');
-                        } else {
-                            alert('Failed to set schedule. Please try again.');
-                        }
-                    }
+            // Mode selection handler
+            led.modes.forEach(mode => {
+                mode.onclick = () => {
+                    // Hide all panels
+                    Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
+                    // Show selected panel
+                    led.panels[mode.value].classList.add('active');
                 };
-                xhr.open('POST', '/api/mode', true);
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.send(JSON.stringify({
-                    mode: 'auto',
-                    onTime: convertTo24Hour(onTime.value),
-                    offTime: convertTo24Hour(offTime.value)
-                }));
-            }
-        };
+            });
 
-        // Remove any existing time input event listeners
-        [onTime, offTime].forEach(input => {
-            input.onchange = null;
-            input.oninput = null;
-        });
+            // Modify toggle handler to check enabled state
+            led.toggle.onclick = () => {
+                if (!ledStates[ledId].enabled) return;
+                fetch(`/api/led${ledId}/toggle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                    .then(() => updateLEDStatus(ledId));
+            };
 
-        toggle.onclick = () => sendRequest('POST', '/api/led/toggle');
-        sendRequest('GET', '/api/led');
+            // Modify disable toggle handler
+            led.disableToggle.onclick = () => {
+                ledStates[ledId].enabled = !led.disableToggle.checked;
 
-        timerToggle.onclick = () => {
-            if (timerToggle.checked) {
-                sendRequest('POST', '/api/timer', {
-                    seconds: parseInt(timerDuration.value)
+                // Update UI state
+                led.allControls.forEach(panel => {
+                    panel.style.opacity = ledStates[ledId].enabled ? '1' : '0.5';
+                    panel.style.pointerEvents = ledStates[ledId].enabled ? 'auto' : 'none';
                 });
-            }
-        };
 
-        function updateTimerToggle() {
-            const duration = parseInt(timerDuration.value);
-            const switchContainer = document.getElementById('timerSwitchContainer');
+                // Update status display
+                if (!ledStates[ledId].enabled) {
+                    led.indicator.className = 'status-indicator off';
+                    led.statusText.textContent = 'LED Status: Disabled';
+                    // Clear any existing intervals
+                    if (led.statusInterval) {
+                        clearInterval(led.statusInterval);
+                    }
+                } else {
+                    updateLEDStatus(ledId);
+                    // Restart status updates
+                    led.statusInterval = setInterval(() => updateLEDStatus(ledId), 2000);
+                }
 
-            if (duration === 0) {
-                switchContainer.style.display = 'none';
-                timerToggle.checked = false;
-            } else {
-                switchContainer.style.display = 'flex';
-            }
+                // Send state to server
+                fetch(`/api/led${ledId}/system/state`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: ledStates[ledId].enabled })
+                });
+            };
+
+            // Add timer duration change handler
+            led.timerDuration.onchange = () => {
+                if (led.timerDuration.value === "0") {
+                    led.timerSwitch.style.display = 'none';
+                } else {
+                    led.timerSwitch.style.display = 'flex';
+                }
+            };
+
+            // Initialize timer switch visibility
+            led.timerSwitch.style.display = led.timerDuration.value === "0" ? 'none' : 'flex';
+
+            // Start status updates with interval reference
+            led.statusInterval = setInterval(() => updateLEDStatus(ledId), 2000);
+            updateLEDStatus(ledId);
         }
 
-        // Initialize timer toggle state
-        updateTimerToggle();
+        // Update LED status
+        function updateLEDStatus(ledId) {
+            // Don't update if LED is disabled
+            if (!ledStates[ledId].enabled) return;
+
+            const indicator = document.querySelector(`#led${ledId} .status-indicator`);
+            const statusText = document.querySelector(`#liveStatus_${ledId}`);
+
+            fetch(`/api/led${ledId}/status`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(state => {
+                    // Check if response is valid
+                    if (state === 'ON' || state === 'OFF') {
+                        indicator.className = `status-indicator ${state.toLowerCase()}`;
+                        statusText.textContent = `LED ${ledId} is currently ${state}`;
+                    } else {
+                        throw new Error('Invalid state received');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    indicator.className = 'status-indicator off';
+                    statusText.textContent = `LED ${ledId} status: Error`;
+                });
+        }
+
+        // Connection status check
+        function checkConnection() {
+            fetch('/api/status')
+                .then(response => response.text())
+                .then(status => {
+                    const conn = document.getElementById('connectionStatus');
+                    if (status === 'true') {
+                        conn.className = 'connection-status online';
+                        conn.querySelector('span:last-child').textContent = 'Online';
+                    } else {
+                        conn.className = 'connection-status offline';
+                        conn.querySelector('span:last-child').textContent = 'Offline';
+                    }
+                })
+                .catch(() => {
+                    const conn = document.getElementById('connectionStatus');
+                    conn.className = 'connection-status offline';
+                    conn.querySelector('span:last-child').textContent = 'Offline';
+                });
+        }
+
+        // Initialize everything
+        [1, 2, 3, 4].forEach(setupLED);
+        setInterval(checkConnection, 5000);
+        checkConnection();
     </script>
 </body>
 

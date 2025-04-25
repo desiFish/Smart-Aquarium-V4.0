@@ -13,3 +13,5 @@ A cutting-edge aquarium control system that will revolutionize your underwater w
 Stay tuned for more updates! 🚀
 
 _Project under development_ 🛠️
+
+Resource: https://randomnerdtutorials.com/arduino-ide-2-install-esp32-littlefs/
