@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>LED Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            background: #121212;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .container {
+            background: #1e1e1e;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            display: none;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+            background: #333;
+            transition: .4s;
+            border-radius: 34px;
+            cursor: pointer;
+        }
+
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background: #2196F3;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(26px);
+        }
+
+        #status {
+            margin: 1rem 0;
+            font-size: 1.2rem;
+            color: #888;
+        }
+
+        .time-controls {
+            display: none;
+            background: #252525;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .time-controls.active {
+            display: block;
+        }
+
+        .time-input {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 4px;
+            width: 120px;
+        }
+
+        .disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .mode-selector {
+            display: inline-flex;
+            background: #252525;
+            padding: 4px;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .mode-selector input[type="radio"] {
+            display: none;
+        }
+
+        .mode-selector label {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .mode-selector input[type="radio"]:checked+label {
+            background: #2196F3;
+            color: white;
+        }
+
+        .control-panel {
+            display: none;
+            margin-top: 1rem;
+            background: #252525;
+            padding: 1.2rem;
+            border-radius: 8px;
+        }
+
+        .control-panel.active {
+            display: block;
+        }
+
+        #timerControl,
+        #autoControl {
+            background: #252525;
+            padding: 1.2rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        #autoControl div,
+        #timerControl div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        select {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 5px;
+            width: 120px;
+            margin: 0;
+        }
+
+        .btn-set {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+            margin: 15px auto 0;
+            display: block;
+        }
+
+        .btn-set:hover {
+            background: #1976D2;
+        }
+
+        .status-monitor {
+            background: #252525;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin: 0 0 1rem 0;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: #666;
+        }
+
+        .status-indicator.on {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+
+        .status-indicator.off {
+            background: #666;
+        }
+
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .switch-label {
+            color: #888;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 0 auto;
+            max-width: 500px;
+            position: relative;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .connection-status {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            position: absolute;
+            right: 1.5rem;
+        }
+
+        .connection-status.online {
+            background: #1b5e20;
+            color: #4CAF50;
+        }
+
+        .connection-status.offline {
+            background: #b71c1c;
+            color: #ff5252;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .connection-status.online .connection-dot {
+            background: #4CAF50;
+            box-shadow: 0 0 8px #4CAF50;
+        }
+
+        .connection-status.offline .connection-dot {
+            background: #ff5252;
+            box-shadow: 0 0 8px #ff5252;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .page-header {
+            background: #1e1e1e;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1rem;
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .controls-container {
+            background: #1e1e1e;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        .page-title {
+            color: #2196F3;
+            font-size: 2rem;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            flex: 1;
+            text-align: center;
+        }
+
+        .disable-control {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #333;
+            text-align: center;
+        }
+
+        .disable-control .switch-label {
+            color: #888;
+        }
+
+        .disable-control .switch-label:first-child {
+            color: #4CAF50;
+            /* Green for ENABLED */
+        }
+
+        .disable-control .switch-label:last-child {
+            color: #ff5252;
+            /* Red for DISABLED */
+        }
+
+        .disable-control .slider {
+            background: #4CAF50;
+            /* Green background for enabled state */
+        }
+
+        .disable-control input:checked+.slider {
+            background: #b71c1c;
+            /* Red background for disabled state */
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .connection-status {
+                position: static;
+                margin: 0 auto;
+            }
+
+            .page-title {
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page-header">
+        <div class="header">
+            <h2 class="page-title">LED Control</h2>
+            <div id="connectionStatus" class="connection-status offline">
+                <span class="connection-dot"></span>
+                <span>Offline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-container">
+        <div class="status-monitor">
+            <span class="status-indicator"></span>
+            <span id="liveStatus">Checking LED status...</span>
+        </div>
+
+        <div class="mode-selector">
+            <input type="radio" id="modeManual" name="mode" value="manual" checked>
+            <label for="modeManual">Manual</label>
+            <input type="radio" id="modeAuto" name="mode" value="auto">
+            <label for="modeAuto">Auto</label>
+            <input type="radio" id="modeTimer" name="mode" value="timer">
+            <label for="modeTimer">Timer</label>
+        </div>
+
+        <div id="manualControl" class="control-panel active">
+            <div class="switch-container">
+                <span class="switch-label">OFF</span>
+                <label class="switch">
+                    <input type="checkbox" id="ledToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="switch-label">ON</span>
+            </div>
+        </div>
+
+        <div id="autoControl" class="control-panel">
+            <div>
+                <label>ON Time:</label>
+                <input type="time" id="onTime" class="time-input">
+            </div>
+            <div>
+                <label>OFF Time:</label>
+                <input type="time" id="offTime" class="time-input">
+            </div>
+            <button id="setTime" class="btn-set">Set Schedule</button>
+        </div>
+
+        <div id="timerControl" class="control-panel">
+            <div>
+                <label>Timer Duration:</label>
+                <select id="timerDuration" onchange="updateTimerToggle()">
+                    <option value="0">No Timer</option>
+                    <option value="5">5 seconds</option>
+                    <option value="10">10 seconds</option>
+                    <option value="15">15 seconds</option>
+                </select>
+            </div>
+            <div id="timerSwitchContainer" class="switch-container">
+                <span class="switch-label">OFF</span>
+                <label class="switch">
+                    <input type="checkbox" id="timerToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="switch-label">ON</span>
+            </div>
+        </div>
+
+        <div class="disable-control">
+            <div class="switch-container">
+                <span class="switch-label">ENABLED</span>
+                <label class="switch">
+                    <input type="checkbox" id="disableToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="switch-label">DISABLED</span>
+            </div>
+        </div>
+    </div>
+    <script>
+        const toggle = document.getElementById('ledToggle');
+        const status = document.getElementById('status');
+        const modeToggle = document.getElementById('modeToggle');
+        const modeStatus = document.getElementById('modeStatus');
+        const manualControl = document.getElementById('manualControl');
+        const autoControl = document.getElementById('autoControl');
+        const onTime = document.getElementById('onTime');
+        const offTime = document.getElementById('offTime');
+        const modeInputs = document.querySelectorAll('input[name="mode"]');
+        const controlPanels = document.querySelectorAll('.control-panel');
+        const timerToggle = document.getElementById('timerToggle');
+        const timerDuration = document.getElementById('timerDuration');
+        const setTimeButton = document.getElementById('setTime');
+        const liveStatus = document.getElementById('liveStatus');
+        const statusIndicator = document.querySelector('.status-indicator');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const disableToggle = document.getElementById('disableToggle');
+        let isSystemEnabled = true;
+        let ledStatusInterval;
+
+        disableToggle.onclick = () => {
+            isSystemEnabled = !disableToggle.checked;
+            const controlPanels = document.querySelectorAll('.control-panel, .mode-selector');
+
+            // Update UI state
+            controlPanels.forEach(panel => {
+                panel.style.opacity = isSystemEnabled ? '1' : '0.5';
+                panel.style.pointerEvents = isSystemEnabled ? 'auto' : 'none';
+            });
+
+            // Handle LED status checking
+            if (!isSystemEnabled) {
+                clearInterval(ledStatusInterval);
+                statusIndicator.className = 'status-indicator off';
+                liveStatus.textContent = 'LED Status: Disabled';
+            } else {
+                // Immediately update status when enabled
+                updateLEDStatus();
+                // Resume interval checks
+                ledStatusInterval = setInterval(updateLEDStatus, 2000);
+                // Reset status text format
+                liveStatus.textContent = 'Checking LED status...';
+            }
+
+            sendRequest('POST', '/api/system/state', {
+                enabled: isSystemEnabled
+            });
+        };
+
+        function sendRequest(method, url, data = null) {
+            if (!isSystemEnabled && !url.includes('/api/status')) {
+                return; // Block all requests except status check when disabled
+            }
+            const xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    updateLEDStatus(); // Update status after any action
+                }
+            };
+            xhr.open(method, url, true);
+            if (data) {
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(JSON.stringify(data));
+            } else {
+                xhr.send();
+            }
+        }
+
+        function updateLEDStatus() {
+            const xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const state = xhr.responseText;
+                    statusIndicator.className = 'status-indicator ' + (state === 'ON' ? 'on' : 'off');
+                    liveStatus.textContent = `LED is currently ${state}`;
+                }
+            };
+            xhr.open('GET', '/api/led/status', true);
+            xhr.send();
+        }
+
+        function checkConnection() {
+            const xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+                if (xhr.status === 200 && xhr.responseText === 'true') {
+                    connectionStatus.className = 'connection-status online';
+                    connectionStatus.querySelector('span:last-child').textContent = 'Online';
+                } else {
+                    setOfflineStatus();
+                }
+            };
+            xhr.onerror = setOfflineStatus;
+            xhr.timeout = 3000; // 3 second timeout
+            xhr.ontimeout = setOfflineStatus;
+            xhr.open('GET', '/api/status', true);
+            xhr.send();
+        }
+
+        function setOfflineStatus() {
+            connectionStatus.className = 'connection-status offline';
+            connectionStatus.querySelector('span:last-child').textContent = 'Offline';
+        }
+
+        // Replace the old LED status interval setup with variable reference
+        ledStatusInterval = setInterval(updateLEDStatus, 2000);
+
+        // Update status immediately on page load
+        updateLEDStatus();
+
+        // Check connection status every 5 seconds
+        setInterval(checkConnection, 5000);
+
+        // Initial connection check
+        checkConnection();
+
+        modeInputs.forEach(input => {
+            input.onchange = () => {
+                controlPanels.forEach(panel => panel.classList.remove('active'));
+                document.getElementById(`${input.value}Control`).classList.add('active');
+                sendRequest('POST', '/api/mode', {
+                    mode: input.value,
+                    onTime: onTime.value,
+                    offTime: offTime.value,
+                    timerDuration: timerDuration.value
+                });
+            };
+        });
+
+        function convertTo24Hour(timeStr) {
+            const date = new Date(`2000-01-01 ${timeStr}`);
+            return date.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        setTimeButton.onclick = () => {
+            if (onTime.value && offTime.value) {
+                const xhr = new XMLHttpRequest();
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        const response = xhr.responseText;
+                        if (response === 'true') {
+                            alert('Schedule set successfully!');
+                        } else {
+                            alert('Failed to set schedule. Please try again.');
+                        }
+                    }
+                };
+                xhr.open('POST', '/api/mode', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(JSON.stringify({
+                    mode: 'auto',
+                    onTime: convertTo24Hour(onTime.value),
+                    offTime: convertTo24Hour(offTime.value)
+                }));
+            }
+        };
+
+        // Remove any existing time input event listeners
+        [onTime, offTime].forEach(input => {
+            input.onchange = null;
+            input.oninput = null;
+        });
+
+        toggle.onclick = () => sendRequest('POST', '/api/led/toggle');
+        sendRequest('GET', '/api/led');
+
+        timerToggle.onclick = () => {
+            if (timerToggle.checked) {
+                sendRequest('POST', '/api/timer', {
+                    seconds: parseInt(timerDuration.value)
+                });
+            }
+        };
+
+        function updateTimerToggle() {
+            const duration = parseInt(timerDuration.value);
+            const switchContainer = document.getElementById('timerSwitchContainer');
+
+            if (duration === 0) {
+                switchContainer.style.display = 'none';
+                timerToggle.checked = false;
+            } else {
+                switchContainer.style.display = 'flex';
+            }
+        }
+
+        // Initialize timer toggle state
+        updateTimerToggle();
+    </script>
+</body>
+
+</html>
