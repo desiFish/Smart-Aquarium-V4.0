@@ -10,7 +10,8 @@
             color: #fff;
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 20px 20px 40px;
+            /* Added bottom padding for footer */
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -524,6 +525,18 @@
         #timerControl_4 .switch-container {
             /* Remove all previous properties */
         }
+
+        .version-footer {
+            margin-top: auto;
+            /* Push footer to bottom */
+            width: 100%;
+            font-size: 0.7rem;
+            color: #666;
+            text-align: center;
+            background: #121212;
+            padding: 4px 0;
+            border-top: 1px solid #252525;
+        }
     </style>
 </head>
 
@@ -540,7 +553,7 @@
 
     <div class="grid-container">
         <div id="led1" class="controls-container">
-            <h3 class="led-title">LED 1</h3>
+            <h3 class="led-title" id="ledName_1">LED 1</h3>
             <div class="status-monitor">
                 <span class="status-indicator"></span>
                 <span id="liveStatus_1">Checking LED status...</span>
@@ -611,7 +624,7 @@
         </div>
 
         <div id="led2" class="controls-container">
-            <h3 class="led-title">LED 2</h3>
+            <h3 class="led-title" id="ledName_2">LED 2</h3>
             <div class="status-monitor">
                 <span class="status-indicator"></span>
                 <span id="liveStatus_2">Checking LED status...</span>
@@ -682,7 +695,7 @@
         </div>
 
         <div id="led3" class="controls-container">
-            <h3 class="led-title">LED 3</h3>
+            <h3 class="led-title" id="ledName_3">LED 3</h3>
             <div class="status-monitor">
                 <span class="status-indicator"></span>
                 <span id="liveStatus_3">Checking LED status...</span>
@@ -753,7 +766,7 @@
         </div>
 
         <div id="led4" class="controls-container">
-            <h3 class="led-title">LED 4</h3>
+            <h3 class="led-title" id="ledName_4">LED 4</h3>
             <div class="status-monitor">
                 <span class="status-indicator"></span>
                 <span id="liveStatus_4">Checking LED status...</span>
@@ -824,7 +837,31 @@
         </div>
     </div>
 
+    <footer class="version-footer">
+        <span id="versionInfo">Checking version...</span>
+    </footer>
+
     <script>
+        // Add this function at the start of the script section
+        function fetchLEDNames() {
+            [1, 2, 3, 4].forEach(ledId => {
+                fetch(`/api/led${ledId}/name`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text();
+                    })
+                    .then(name => {
+                        const nameElement = document.getElementById(`ledName_${ledId}`);
+                        nameElement.textContent = name || `LED ${ledId}`;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching LED name:', error);
+                        const nameElement = document.getElementById(`ledName_${ledId}`);
+                        nameElement.textContent = 'Error';
+                    });
+            });
+        }
+
         // Add LED states tracking
         const ledStates = {
             1: { enabled: true },
@@ -885,7 +922,7 @@
                 // Update status display
                 if (!ledStates[ledId].enabled) {
                     led.indicator.className = 'status-indicator off';
-                    led.statusText.textContent = 'LED Status: Disabled';
+                    led.statusText.textContent = 'Status: Disabled';
                     // Clear any existing intervals
                     if (led.statusInterval) {
                         clearInterval(led.statusInterval);
@@ -940,7 +977,7 @@
                     // Check if response is valid
                     if (state === 'ON' || state === 'OFF') {
                         indicator.className = `status-indicator ${state.toLowerCase()}`;
-                        statusText.textContent = `LED ${ledId} is currently ${state}`;
+                        statusText.textContent = `Status: ${state}`;
                     } else {
                         throw new Error('Invalid state received');
                     }
@@ -948,7 +985,7 @@
                 .catch(error => {
                     console.error('Error:', error);
                     indicator.className = 'status-indicator off';
-                    statusText.textContent = `LED ${ledId} status: Error`;
+                    statusText.textContent = 'Status: Error';
                 });
         }
 
@@ -973,7 +1010,24 @@
                 });
         }
 
+        function fetchVersion() {
+            fetch('/api/version')
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text();
+                })
+                .then(version => {
+                    document.getElementById('versionInfo').textContent = version;
+                })
+                .catch(error => {
+                    console.error('Error fetching version:', error);
+                    document.getElementById('versionInfo').textContent = 'error';
+                });
+        }
+
         // Initialize everything
+        fetchVersion();
+        fetchLEDNames();
         [1, 2, 3, 4].forEach(setupLED);
         setInterval(checkConnection, 5000);
         checkConnection();
