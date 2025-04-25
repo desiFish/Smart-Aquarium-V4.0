@@ -864,11 +864,60 @@
 
         // Add LED states tracking
         const ledStates = {
-            1: { enabled: true },
-            2: { enabled: true },
-            3: { enabled: true },
-            4: { enabled: true }
+            1: { enabled: false },  // Changed default to false
+            2: { enabled: false },
+            3: { enabled: false },
+            4: { enabled: false }
         };
+
+        // Add new function to fetch LED states
+        function fetchLEDStates() {
+            [1, 2, 3, 4].forEach(ledId => {
+                fetch(`/api/led${ledId}/system/state`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(state => {
+                        ledStates[ledId].enabled = state.enabled;
+                        const led = document.getElementById(`led${ledId}`);
+                        const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
+                        const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
+
+                        // Update UI state
+                        disableToggle.checked = !state.enabled;
+                        controls.forEach(panel => {
+                            panel.style.opacity = state.enabled ? '1' : '0.5';
+                            panel.style.pointerEvents = state.enabled ? 'auto' : 'none';
+                        });
+
+                        // Update status text if disabled
+                        if (!state.enabled) {
+                            const statusText = document.querySelector(`#liveStatus_${ledId}`);
+                            const indicator = document.querySelector(`#led${ledId} .status-indicator`);
+                            statusText.textContent = 'Status: Disabled';
+                            indicator.className = 'status-indicator off';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching LED state:', error);
+                        // Disable LED on error
+                        ledStates[ledId].enabled = false;
+                        const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
+                        const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
+                        const statusText = document.querySelector(`#liveStatus_${ledId}`);
+                        const indicator = document.querySelector(`#led${ledId} .status-indicator`);
+
+                        disableToggle.checked = true;
+                        controls.forEach(panel => {
+                            panel.style.opacity = '0.5';
+                            panel.style.pointerEvents = 'none';
+                        });
+                        statusText.textContent = 'Status: Disabled';
+                        indicator.className = 'status-indicator off';
+                    });
+            });
+        }
 
         // Function to initialize LED controls
         function setupLED(ledId) {
@@ -1028,6 +1077,7 @@
         // Initialize everything
         fetchVersion();
         fetchLEDNames();
+        fetchLEDStates();  // Add this line before setupLED
         [1, 2, 3, 4].forEach(setupLED);
         setInterval(checkConnection, 5000);
         checkConnection();
