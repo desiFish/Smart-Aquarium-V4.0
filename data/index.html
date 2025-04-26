@@ -991,6 +991,35 @@
             });
         }
 
+        // Add this function after syncModesFromServer
+        function fetchScheduleTimes() {
+            [1, 2, 3, 4].forEach(ledId => {
+                fetch(`/api/led${ledId}/schedule`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(schedule => {
+                        const onTimeInput = document.querySelector(`#onTime_${ledId}`);
+                        const offTimeInput = document.querySelector(`#offTime_${ledId}`);
+                        
+                        // Convert integer times back to HH:MM format
+                        if (schedule.onTime) {
+                            const hours = Math.floor(schedule.onTime / 100).toString().padStart(2, '0');
+                            const minutes = (schedule.onTime % 100).toString().padStart(2, '0');
+                            onTimeInput.value = `${hours}:${minutes}`;
+                        }
+                        
+                        if (schedule.offTime) {
+                            const hours = Math.floor(schedule.offTime / 100).toString().padStart(2, '0');
+                            const minutes = (schedule.offTime % 100).toString().padStart(2, '0');
+                            offTimeInput.value = `${hours}:${minutes}`;
+                        }
+                    })
+                    .catch(error => console.error(`Error fetching schedule for LED ${ledId}:`, error));
+            });
+        }
+
         // Function to initialize LED controls
         function setupLED(ledId) {
             const led = {
@@ -1061,7 +1090,13 @@
                         body: JSON.stringify({ onTime, offTime })
                     });
                 })
-                .catch(error => console.error('Error:', error));
+                .then(() => {
+                    alert('Schedule set successfully!');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to set schedule');
+                });
             };
 
             // Timer mode handler
@@ -1219,7 +1254,8 @@
         fetchVersion();
         fetchLEDNames();
         fetchLEDStates();
-        initModesFromServer(); // Add this line before setupLED
+        initModesFromServer();
+        fetchScheduleTimes(); // Add this line
         [1, 2, 3, 4].forEach(setupLED);
         setInterval(checkConnection, 5000);
         checkConnection();

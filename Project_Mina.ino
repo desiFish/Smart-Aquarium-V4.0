@@ -30,6 +30,9 @@ private:
   byte pin;
   String name;
   int relayNum; // Added to track relay number
+  unsigned long timerStart;    // When timer was started
+  int timerDuration;          // Duration in seconds
+  bool timerActive;           // If timer is currently running
 
   void loadFromPreferences()
   {
@@ -66,7 +69,8 @@ private:
   }
 
 public:
-  Relay(byte pinNumber, int num) : pin(pinNumber), relayNum(num) // Simplified constructor
+  Relay(byte pinNumber, int num) : pin(pinNumber), relayNum(num), 
+                                    timerStart(0), timerDuration(0), timerActive(false) // Simplified constructor
   {
     pinMode(pin, OUTPUT);
     loadFromPreferences();
@@ -119,6 +123,19 @@ public:
     name = newName;
     saveToPreferences();
   }
+
+  // Add timer methods
+  void setTimer(int duration, bool start) {
+    timerDuration = duration;
+    timerActive = start;
+    if (start) {
+        timerStart = millis();
+    }
+  }
+
+  int getTimerDuration() { return timerDuration; }
+  bool isTimerActive() { return timerActive; }
+  unsigned long getTimerStart() { return timerStart; }
 };
 
 // Initialize preferences once
@@ -284,6 +301,85 @@ void setup()
 
         relays[modeIndex-1]->setMode(newMode);
         request->send(200, "text/plain", "Mode updated");
+    });
+
+    // Add timer endpoint
+    String timerEndpoint = "/api/led" + String(i) + "/timer";
+    server.on(timerEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
+              NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
+        StaticJsonDocument<200> doc;
+        DeserializationError error = deserializeJson(doc, (const char*)data, len);
+        
+        if (error) {
+            request->send(400, "text/plain", "Invalid JSON");
+            return;
+        }
+
+        if (!doc.containsKey("duration") || !doc.containsKey("state")) {
+            request->send(400, "text/plain", "Missing duration or state field");
+            return;
+        }
+
+        int duration = doc["duration"].as<int>();
+        bool state = doc["state"].as<bool>();
+        
+        if (!state) {
+            // Deactivate timer
+            relays[modeIndex-1]->setTimer(0, false);
+            request->send(200, "text/plain", "Timer stopped");
+            return;
+        }
+        
+        if (duration <= 0) {
+            request->send(400, "text/plain", "Invalid duration");
+            return;
+        }
+
+        // Set timer with provided duration
+        relays[modeIndex-1]->setTimer(duration, true);
+        request->send(200, "text/plain", "Timer started");
+    });
+
+    // Add schedule endpoint
+    String scheduleEndpoint = "/api/led" + String(i) + "/schedule";
+    server.on(scheduleEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
+              NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
+        StaticJsonDocument<200> doc;
+        DeserializationError error = deserializeJson(doc, (const char*)data, len);
+        
+        if (error) {
+            request->send(400, "text/plain", "Invalid JSON");
+            return;
+        }
+
+        if (!doc.containsKey("onTime") || !doc.containsKey("offTime")) {
+            request->send(400, "text/plain", "Missing time fields");
+            return;
+        }
+
+        String onTimeStr = doc["onTime"].as<String>();
+        String offTimeStr = doc["offTime"].as<String>();
+        
+        // Convert time strings to integers (e.g., "14:30" -> 1430)
+        int onTime = (onTimeStr.substring(0,2).toInt() * 100) + onTimeStr.substring(3,5).toInt();
+        int offTime = (offTimeStr.substring(0,2).toInt() * 100) + offTimeStr.substring(3,5).toInt();
+        
+        if (onTime < 0 || onTime > 2359 || offTime < 0 || offTime > 2359) {
+            request->send(400, "text/plain", "Invalid time values");
+            return;
+        }
+
+        relays[modeIndex-1]->setTimes(onTime, offTime);
+        request->send(200, "text/plain", "Schedule updated");
+    });
+
+    // Add schedule GET endpoint
+    String scheduleGetEndpoint = "/api/led" + String(i) + "/schedule";
+    server.on(scheduleGetEndpoint.c_str(), HTTP_GET, [modeIndex](AsyncWebServerRequest *request) {
+        AsyncResponseStream *response = request->beginResponseStream("application/json");
+        response->print("{\"onTime\": " + String(relays[modeIndex-1]->getOnTime()) + 
+                      ", \"offTime\": " + String(relays[modeIndex-1]->getOffTime()) + "}");
+        request->send(response);
     });
   }
 
