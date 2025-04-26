@@ -4,6 +4,8 @@
 <head>
     <title>Aquarium Control</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#33afff">
+    <link rel="icon" type="image/x-icon" href="/favicon.jpg">
     <style>
         body {
             background: #121212;
@@ -922,6 +924,46 @@
             });
         }
 
+        // Add this function before setupLED
+        function syncModesFromServer() {
+            [1, 2, 3, 4].forEach(ledId => {
+                if (!ledStates[ledId].enabled) return;
+                
+                fetch(`/api/led${ledId}/mode`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text();
+                    })
+                    .then(mode => {
+                        // Validate mode
+                        const validModes = ['manual', 'auto', 'timer'];
+                        mode = mode.toLowerCase().trim();
+                        
+                        if (!validModes.includes(mode)) return;
+                        
+                        // Update UI
+                        const modeRadio = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
+                        const panels = {
+                            manual: document.querySelector(`#manualControl_${ledId}`),
+                            auto: document.querySelector(`#autoControl_${ledId}`),
+                            timer: document.querySelector(`#timerControl_${ledId}`)
+                        };
+                        
+                        if (modeRadio) {
+                            // Check radio button
+                            modeRadio.checked = true;
+                            
+                            // Show correct panel
+                            Object.values(panels).forEach(panel => {
+                                if (panel) panel.classList.remove('active');
+                            });
+                            if (panels[mode]) panels[mode].classList.add('active');
+                        }
+                    })
+                    .catch(error => console.error(`Error syncing mode for LED ${ledId}:`, error));
+            });
+        }
+
         // Function to initialize LED controls
         function setupLED(ledId) {
             const led = {
@@ -941,24 +983,88 @@
                 timerSwitch: document.querySelector(`#timerSwitchContainer_${ledId}`)
             };
 
-            // Mode selection handler
+            // Mode selection only updates UI
             led.modes.forEach(mode => {
                 mode.onclick = () => {
-                    // Hide all panels
+                    if (!ledStates[ledId].enabled) return;
                     Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
-                    // Show selected panel
                     led.panels[mode.value].classList.add('active');
                 };
             });
 
-            // Modify toggle handler to check enabled state
+            // Manual mode toggle handler
             led.toggle.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
-                fetch(`/api/led${ledId}/toggle`, {
+                
+                fetch(`/api/led${ledId}/mode`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'manual' })
                 })
-                    .then(() => updateLEDStatus(ledId));
+                .then(() => {
+                    // After mode is set, toggle the LED
+                    return fetch(`/api/led${ledId}/toggle`, { method: 'POST' });
+                })
+                .then(() => updateLEDStatus(ledId))
+                .catch(error => console.error('Error:', error));
+            };
+
+            // Auto mode schedule handler
+            const setTimeBtn = document.querySelector(`#setTime_${ledId}`);
+            setTimeBtn.onclick = () => {
+                if (!ledStates[ledId].enabled) return;
+                
+                const onTime = document.querySelector(`#onTime_${ledId}`).value;
+                const offTime = document.querySelector(`#offTime_${ledId}`).value;
+                
+                if (!onTime || !offTime) {
+                    alert('Please set both ON and OFF times');
+                    return;
+                }
+                
+                fetch(`/api/led${ledId}/mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'auto' })
+                })
+                .then(() => {
+                    return fetch(`/api/led${ledId}/schedule`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ onTime, offTime })
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+            };
+
+            // Timer mode handler
+            const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
+            timerToggle.onclick = () => {
+                if (!ledStates[ledId].enabled) return;
+                
+                const duration = document.querySelector(`#timerDuration_${ledId}`).value;
+                if (duration === "0") {
+                    alert('Please select a duration');
+                    timerToggle.checked = false;
+                    return;
+                }
+                
+                fetch(`/api/led${ledId}/mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'timer' })
+                })
+                .then(() => {
+                    return fetch(`/api/led${ledId}/timer`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ duration: parseInt(duration), state: timerToggle.checked })
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    timerToggle.checked = !timerToggle.checked; // Revert on error
+                });
             };
 
             // Modify disable toggle handler
@@ -1008,6 +1114,11 @@
             // Start status updates with interval reference
             led.statusInterval = setInterval(() => updateLEDStatus(ledId), 2000);
             updateLEDStatus(ledId);
+
+            // Initial update if starting in manual mode
+            if (led.modes[0].checked) {
+                updateLEDStatus(ledId);
+            }
         }
 
         // Update LED status
@@ -1017,19 +1128,18 @@
 
             const indicator = document.querySelector(`#led${ledId} .status-indicator`);
             const statusText = document.querySelector(`#liveStatus_${ledId}`);
+            const toggle = document.querySelector(`#ledToggle_${ledId}`);
 
             fetch(`/api/led${ledId}/status`)
                 .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
+                    if (!response.ok) throw new Error('Network response was not ok');
                     return response.text();
                 })
                 .then(state => {
-                    // Check if response is valid
                     if (state === 'ON' || state === 'OFF') {
                         indicator.className = `status-indicator ${state.toLowerCase()}`;
                         statusText.textContent = `Status: ${state}`;
+                        toggle.checked = (state === 'ON');  // Update toggle state
                     } else {
                         throw new Error('Invalid state received');
                     }
@@ -1038,6 +1148,7 @@
                     console.error('Error:', error);
                     indicator.className = 'status-indicator off';
                     statusText.textContent = 'Status: Error';
+                    toggle.checked = false;  // Default to OFF on error
                 });
         }
 
@@ -1080,7 +1191,8 @@
         // Initialize everything
         fetchVersion();
         fetchLEDNames();
-        fetchLEDStates();  // Add this line before setupLED
+        fetchLEDStates();
+        syncModesFromServer(); // Add this line
         [1, 2, 3, 4].forEach(setupLED);
         setInterval(checkConnection, 5000);
         checkConnection();

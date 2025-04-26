@@ -4,9 +4,10 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
-Preferences pref;
+// Global preferences instance
+Preferences prefs;
 
-#define SWVersion "v0.0.3-alpha"
+#define SWVersion "v0.1.0-alpha"
 
 const char *ssid = "SonyBraviaX400";
 const char *password = "79756622761";
@@ -17,29 +18,121 @@ AsyncWebServer server(80);
 unsigned long timerStarter = 0;
 int timerDuration = 0;
 
-String getLEDState()
+class Relay
 {
-  return digitalRead(ledPin) ? "ON" : "OFF";
-}
+private:
+  static Preferences &preferences; // Change to static reference
+  bool isOn;
+  int onTime;
+  int offTime;
+  String mode; // "manual", "auto", or "timer"
+  bool isDisabled;
+  byte pin;
+  String name;
+  int relayNum; // Added to track relay number
+
+  void loadFromPreferences()
+  {
+    String key = String(relayNum); // Use simple numeric key
+    Serial.print("Loading preferences for relay ");
+    Serial.println(key);
+
+    isOn = preferences.getBool((key + "_on").c_str(), false);
+    isDisabled = preferences.getBool((key + "_disabled").c_str(), false);
+    name = preferences.getString((key + "_name").c_str(), "Relay " + key);
+    onTime = preferences.getInt((key + "_onTime").c_str(), 0);
+    offTime = preferences.getInt((key + "_offTime").c_str(), 0);
+    mode = preferences.getString((key + "_mode").c_str(), "manual");
+
+    Serial.printf("Loaded: on=%d, disabled=%d, name=%s, onTime=%d, offTime=%d, mode=%s\n",
+                  isOn, isDisabled, name.c_str(), onTime, offTime, mode.c_str());
+  }
+
+  void saveToPreferences()
+  {
+    String key = String(relayNum);
+    Serial.print("Saving preferences for relay ");
+    Serial.println(key);
+
+    preferences.putBool((key + "_on").c_str(), isOn);
+    preferences.putBool((key + "_disabled").c_str(), isDisabled);
+    preferences.putString((key + "_name").c_str(), name);
+    preferences.putInt((key + "_onTime").c_str(), onTime);
+    preferences.putInt((key + "_offTime").c_str(), offTime);
+    preferences.putString((key + "_mode").c_str(), mode);
+
+    Serial.printf("Saved: on=%d, disabled=%d, name=%s, onTime=%d, offTime=%d, mode=%s\n",
+                  isOn, isDisabled, name.c_str(), onTime, offTime, mode.c_str());
+  }
+
+public:
+  Relay(byte pinNumber, int num) : pin(pinNumber), relayNum(num) // Simplified constructor
+  {
+    pinMode(pin, OUTPUT);
+    loadFromPreferences();
+    digitalWrite(pin, isOn ? HIGH : LOW);
+  }
+
+  void toggle()
+  {
+    if (!isDisabled)
+    {
+      isOn = !isOn;
+      digitalWrite(pin, isOn ? HIGH : LOW);
+      saveToPreferences();
+    }
+  }
+
+  void setTimes(int on, int off)
+  {
+    onTime = on;
+    offTime = off;
+    saveToPreferences();
+  }
+
+  void setMode(String newMode)
+  {
+    mode = newMode;
+    saveToPreferences();
+  }
+
+  void setDisabled(bool disabled)
+  {
+    isDisabled = disabled;
+    if (disabled)
+    {
+      isOn = false;
+      digitalWrite(pin, LOW);
+    }
+    saveToPreferences();
+  }
+
+  bool getState() { return isOn; }
+  bool isEnabled() { return !isDisabled; }
+  String getMode() { return mode; }
+  int getOnTime() { return onTime; }
+  int getOffTime() { return offTime; }
+  String getName() { return name; }
+
+  void setName(String newName)
+  {
+    name = newName;
+    saveToPreferences();
+  }
+};
+
+// Initialize preferences once
+Preferences gPrefs;
+Preferences &Relay::preferences = gPrefs;
+
+const byte RELAY_PINS[] = {26, 27, 14, 12};
+const byte NUM_RELAYS = 4;
+Relay *relays[NUM_RELAYS]; // Array of pointers
 
 void setup()
 {
   Serial.begin(115200);
   pinMode(ledPin, OUTPUT);
-
-  pref.begin("storage", false);
-
-  if (!pref.isKey("name1"))
-    pref.putString("name1", "Relay1");
-
-  if (!pref.isKey("name2"))
-    pref.putString("name2", "Relay2");
-
-  if (!pref.isKey("name3"))
-    pref.putString("name3", "Relay3");
-
-  if (!pref.isKey("name4"))
-    pref.putString("name4", "Relay4");
 
   if (!LittleFS.begin(true))
   {
@@ -55,11 +148,25 @@ void setup()
   }
   Serial.println(WiFi.localIP());
 
+  // Open preferences at start and keep open
+  if (!gPrefs.begin("relay_store", false))
+  {
+    Serial.println("Failed to initialize preferences");
+    return;
+  }
+
+  // Create relay objects with index numbers
+  for (byte i = 0; i < NUM_RELAYS; i++)
+  {
+    relays[i] = new Relay(RELAY_PINS[i], i + 1);
+  }
+
   // Serve static files from LittleFS
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
-
+  // this is like a ping, checks if the server is alive
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", "true"); });
+  // return program version
   server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", SWVersion); });
 
@@ -67,17 +174,15 @@ void setup()
   for (byte i = 1; i < 5; i++)
   {
     String endpoint = "/api/led" + String(i) + "/name";
-    byte ledIndex = i; // Rename to avoid conflict with data index parameter
+    byte ledIndex = i;
 
-    // GET endpoint
-    server.on(endpoint.c_str(), HTTP_GET, [ledIndex, &pref](AsyncWebServerRequest *request)
-              {
-      String name = pref.getString(("name" + String(ledIndex)).c_str());
-      request->send(200, "text/plain", name); });
+    // GET endpoint for retrieval of names
+    server.on(endpoint.c_str(), HTTP_GET, [ledIndex](AsyncWebServerRequest *request)
+              { request->send(200, "text/plain", relays[ledIndex - 1]->getName()); });
 
-    // POST endpoint for setting name on SETTINGS>HTML
+    // POST endpoint for setting name on SETTINGS page
     server.on(endpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, // Empty handler for POST request
-              NULL, [ledIndex, &pref](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
+              NULL, [ledIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
               {
         String json = String((char*)data);
         StaticJsonDocument<200> doc;
@@ -99,7 +204,7 @@ void setup()
           return;
         }
 
-        pref.putString(("name" + String(ledIndex)).c_str(), newName);
+        relays[ledIndex-1]->setName(newName);
         request->send(200, "text/plain", "Name updated"); });
   }
 
@@ -107,25 +212,93 @@ void setup()
   for (byte i = 1; i < 5; i++)
   {
     String endpoint = "/api/led" + String(i) + "/system/state";
-    server.on(endpoint.c_str(), HTTP_GET, [](AsyncWebServerRequest *request)
+    byte ledIndex = i;
+
+    // GET handler (existing)
+    server.on(endpoint.c_str(), HTTP_GET, [ledIndex](AsyncWebServerRequest *request)
               {
       AsyncResponseStream *response = request->beginResponseStream("application/json");
-      response->print("{\"enabled\": false}");  // true or false 
+      response->print("{\"enabled\": " + String(relays[ledIndex-1]->isEnabled() ? "true" : "false") + "}");
       request->send(response); });
+
+    // POST handler (new)
+    server.on(endpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, // Empty handler required
+              NULL, [ledIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
+              {
+        StaticJsonDocument<200> doc;
+        DeserializationError error = deserializeJson(doc, (const char*)data, len);
+        
+        if (error) {
+          request->send(400, "text/plain", "Invalid JSON");
+          return;
+        }
+
+        if (!doc.containsKey("enabled")) {
+          request->send(400, "text/plain", "Missing enabled field");
+          return;
+        }
+
+        bool enabled = doc["enabled"].as<bool>();
+        relays[ledIndex-1]->setDisabled(!enabled);
+        request->send(200, "text/plain", "State updated"); });
   }
 
   // Server endpoints for RELAY ON/OFF status
   for (byte i = 1; i < 5; i++)
   {
     String endpoint = "/api/led" + String(i) + "/status";
-    server.on(endpoint.c_str(), HTTP_GET, [](AsyncWebServerRequest *request)
+    byte ledIndex = i;
+    server.on(endpoint.c_str(), HTTP_GET, [ledIndex](AsyncWebServerRequest *request)
+              { request->send(200, "text/plain", relays[ledIndex - 1]->getState() ? "ON" : "OFF"); });
+
+    // Add mode endpoint
+    String modeEndpoint = "/api/led" + String(i) + "/mode";
+    byte modeIndex = i;
+
+    // GET handler (existing)
+    server.on(modeEndpoint.c_str(), HTTP_GET, [modeIndex](AsyncWebServerRequest *request)
+              { request->send(200, "text/plain", relays[modeIndex - 1]->getMode()); });
+
+    // Add POST handler for mode
+    server.on(modeEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
+              NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
+        StaticJsonDocument<200> doc;
+        DeserializationError error = deserializeJson(doc, (const char*)data, len);
+        
+        if (error) {
+            request->send(400, "text/plain", "Invalid JSON");
+            return;
+        }
+
+        if (!doc.containsKey("mode")) {
+            request->send(400, "text/plain", "Missing mode field");
+            return;
+        }
+
+        String newMode = doc["mode"].as<String>();
+        // Validate mode
+        if (newMode != "manual" && newMode != "auto" && newMode != "timer") {
+            request->send(400, "text/plain", "Invalid mode value");
+            return;
+        }
+
+        relays[modeIndex-1]->setMode(newMode);
+        request->send(200, "text/plain", "Mode updated");
+    });
+  }
+
+  // Toggle endpoints for each relay
+  for (byte i = 1; i < 5; i++)
+  {
+    String endpoint = "/api/led" + String(i) + "/toggle";
+    byte ledIndex = i;
+    server.on(endpoint.c_str(), HTTP_POST, [ledIndex](AsyncWebServerRequest *request)
               {
-                request->send(200, "text/plain", "ON"); // Return "ON" or "OFF" based on actual RELAY state
-              });
+      relays[ledIndex-1]->toggle();
+      request->send(200, "text/plain", "Toggled"); });
   }
 
   server.begin();
-  // pref.end();
 }
 
 void loop()
