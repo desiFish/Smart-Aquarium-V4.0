@@ -928,7 +928,7 @@
         function syncModesFromServer() {
             [1, 2, 3, 4].forEach(ledId => {
                 if (!ledStates[ledId].enabled) return;
-                
+
                 fetch(`/api/led${ledId}/mode`)
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
@@ -938,9 +938,9 @@
                         // Validate mode
                         const validModes = ['manual', 'auto', 'timer'];
                         mode = mode.toLowerCase().trim();
-                        
+
                         if (!validModes.includes(mode)) return;
-                        
+
                         // Update UI
                         const modeRadio = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
                         const panels = {
@@ -948,11 +948,11 @@
                             auto: document.querySelector(`#autoControl_${ledId}`),
                             timer: document.querySelector(`#timerControl_${ledId}`)
                         };
-                        
+
                         if (modeRadio) {
                             // Check radio button
                             modeRadio.checked = true;
-                            
+
                             // Show correct panel
                             Object.values(panels).forEach(panel => {
                                 if (panel) panel.classList.remove('active');
@@ -1002,14 +1002,14 @@
                     .then(schedule => {
                         const onTimeInput = document.querySelector(`#onTime_${ledId}`);
                         const offTimeInput = document.querySelector(`#offTime_${ledId}`);
-                        
+
                         // Convert integer times back to HH:MM format
                         if (schedule.onTime) {
                             const hours = Math.floor(schedule.onTime / 100).toString().padStart(2, '0');
                             const minutes = (schedule.onTime % 100).toString().padStart(2, '0');
                             onTimeInput.value = `${hours}:${minutes}`;
                         }
-                        
+
                         if (schedule.offTime) {
                             const hours = Math.floor(schedule.offTime / 100).toString().padStart(2, '0');
                             const minutes = (schedule.offTime % 100).toString().padStart(2, '0');
@@ -1051,82 +1051,82 @@
             // Manual mode toggle handler
             led.toggle.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
-                
+
                 fetch(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'manual' })
                 })
-                .then(() => {
-                    // After mode is set, toggle the LED
-                    return fetch(`/api/led${ledId}/toggle`, { method: 'POST' });
-                })
-                .then(() => updateLEDStatus(ledId))
-                .catch(error => console.error('Error:', error));
+                    .then(() => {
+                        // After mode is set, toggle the LED
+                        return fetch(`/api/led${ledId}/toggle`, { method: 'POST' });
+                    })
+                    .then(() => updateLEDStatus(ledId))
+                    .catch(error => console.error('Error:', error));
             };
 
             // Auto mode schedule handler
             const setTimeBtn = document.querySelector(`#setTime_${ledId}`);
             setTimeBtn.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
-                
+
                 const onTime = document.querySelector(`#onTime_${ledId}`).value;
                 const offTime = document.querySelector(`#offTime_${ledId}`).value;
-                
+
                 if (!onTime || !offTime) {
                     alert('Please set both ON and OFF times');
                     return;
                 }
-                
+
                 fetch(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'auto' })
                 })
-                .then(() => {
-                    return fetch(`/api/led${ledId}/schedule`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ onTime, offTime })
+                    .then(() => {
+                        return fetch(`/api/led${ledId}/schedule`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ onTime, offTime })
+                        });
+                    })
+                    .then(() => {
+                        alert('Schedule set successfully!');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to set schedule');
                     });
-                })
-                .then(() => {
-                    alert('Schedule set successfully!');
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to set schedule');
-                });
             };
 
             // Timer mode handler
             const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
             timerToggle.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
-                
+
                 const duration = document.querySelector(`#timerDuration_${ledId}`).value;
                 if (duration === "0") {
                     alert('Please select a duration');
                     timerToggle.checked = false;
                     return;
                 }
-                
+
                 fetch(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'timer' })
                 })
-                .then(() => {
-                    return fetch(`/api/led${ledId}/timer`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ duration: parseInt(duration), state: timerToggle.checked })
+                    .then(() => {
+                        return fetch(`/api/led${ledId}/timer`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ duration: parseInt(duration), state: timerToggle.checked })
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        timerToggle.checked = !timerToggle.checked; // Revert on error
                     });
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    timerToggle.checked = !timerToggle.checked; // Revert on error
-                });
             };
 
             // Modify disable toggle handler
@@ -1255,7 +1255,7 @@
         fetchLEDNames();
         fetchLEDStates();
         initModesFromServer();
-        fetchScheduleTimes(); 
+        fetchScheduleTimes();
         [1, 2, 3, 4].forEach(setupLED);
         setInterval(checkConnection, 5000);
         checkConnection();

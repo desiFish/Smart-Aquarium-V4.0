@@ -1,4 +1,8 @@
 # Project_Mina 🐠
+**M**icrocontroller-based, **I**nteractive, **N**etworked, **A**quarium
+
+> In Sanskrit, "Mina" (मीन) represents the fish, symbolizing freedom, fluidity, and the eternal flow of life. Just as fish navigate the depths with graceful purpose, this project aims to create harmony between technology and aquatic life. The name embodies our philosophy of maintaining balance in the artificial ecosystems we create, guided by ancient wisdom yet powered by modern innovation.
+
 [![GitHub stars](https://img.shields.io/github/stars/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/network)
 [![GitHub issues](https://img.shields.io/github/issues/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/issues)
@@ -19,11 +23,39 @@ A cutting-edge aquarium control system that will revolutionize your underwater w
 - 🌡️ Temperature monitoring
 - 💡 Smart lighting system
 - 🤜 Better Web UI
+- 🔌 Power control
+- 📱 Mobile-friendly interface
+- 📊 Automatic Controls
 
 ### Technical Details:
 - 💾 Uses LittleFS for efficient web UI storage and management
 - 📱 Responsive web interface stored in flash memory
 - 🔄 Fast loading through compressed static files
+
+## 🤝 Sharing & Contributing
+
+### 🌟 Show Your Support
+If you find this project useful, consider:
+- ⭐ Giving it a star on GitHub
+- 🔄 Forking it for your own projects
+- 📢 Sharing it with fellow aquarium enthusiasts
+
+### 🎯 How to Fork & Use
+1. 🔱 Click the "Fork" button at the top right
+2. 📋 Clone your fork: `git clone https://github.com/YOUR_USERNAME/Project_Mina.git`
+3. 🔨 Make your changes
+4. 💝 Share your improvements through Pull Requests
+
+### 🙏 Giving Credit
+When using this project, please:
+- 🔗 Link back to the original repository
+- 📝 Keep the GPL-3.0 license intact
+- 🌈 Mention in your README: "Based on [Project_Mina](https://github.com/desiFish/Project_Mina) by desiFish"
+
+### 💫 Spread the Word
+- 🐦 Share on Twitter/X
+- 📱 Post on aquarium forums
+- 👥 Tell your fish-keeping friends
 
 ## 📱 Preview
 

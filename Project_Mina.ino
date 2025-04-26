@@ -31,10 +31,10 @@ private:
   bool isDisabled;
   byte pin;
   String name;
-  int relayNum; // Added to track relay number
-  unsigned long timerStart;    // When timer was started
-  int timerDuration;          // Duration in seconds
-  bool timerActive;           // If timer is currently running
+  int relayNum;             // Added to track relay number
+  unsigned long timerStart; // When timer was started
+  int timerDuration;        // Duration in seconds
+  bool timerActive;         // If timer is currently running
 
   void loadFromPreferences()
   {
@@ -71,8 +71,8 @@ private:
   }
 
 public:
-  Relay(byte pinNumber, int num) : pin(pinNumber), relayNum(num), 
-                                    timerStart(0), timerDuration(0), timerActive(false) // Simplified constructor
+  Relay(byte pinNumber, int num) : pin(pinNumber), relayNum(num),
+                                   timerStart(0), timerDuration(0), timerActive(false) // Simplified constructor
   {
     pinMode(pin, OUTPUT);
     loadFromPreferences();
@@ -127,11 +127,13 @@ public:
   }
 
   // timer methods
-  void setTimer(int duration, bool start) {
+  void setTimer(int duration, bool start)
+  {
     timerDuration = duration;
     timerActive = start;
-    if (start) {
-        timerStart = millis();
+    if (start)
+    {
+      timerStart = millis();
     }
   }
 
@@ -279,8 +281,8 @@ void setup()
               { request->send(200, "text/plain", relays[modeIndex - 1]->getMode()); });
 
     // POST handler for retrieving mode
-    server.on(modeEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
-              NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
+    server.on(modeEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
+              {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (const char*)data, len);
         
@@ -302,13 +304,12 @@ void setup()
         }
 
         relays[modeIndex-1]->setMode(newMode);
-        request->send(200, "text/plain", "Mode updated");
-    });
+        request->send(200, "text/plain", "Mode updated"); });
 
     // timer endpoint
     String timerEndpoint = "/api/led" + String(i) + "/timer";
-    server.on(timerEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
-              NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
+    server.on(timerEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
+              {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (const char*)data, len);
         
@@ -339,13 +340,12 @@ void setup()
 
         // Set timer with provided duration
         relays[modeIndex-1]->setTimer(duration, true);
-        request->send(200, "text/plain", "Timer started");
-    });
+        request->send(200, "text/plain", "Timer started"); });
 
     // schedule endpoint for setting on/off times
     String scheduleEndpoint = "/api/led" + String(i) + "/schedule";
-    server.on(scheduleEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
-              NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
+    server.on(scheduleEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
+              {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (const char*)data, len);
         
@@ -372,17 +372,16 @@ void setup()
         }
 
         relays[modeIndex-1]->setTimes(onTime, offTime);
-        request->send(200, "text/plain", "Schedule updated");
-    });
+        request->send(200, "text/plain", "Schedule updated"); });
 
     // schedule GET endpoint for sending on/off times
     String scheduleGetEndpoint = "/api/led" + String(i) + "/schedule";
-    server.on(scheduleGetEndpoint.c_str(), HTTP_GET, [modeIndex](AsyncWebServerRequest *request) {
+    server.on(scheduleGetEndpoint.c_str(), HTTP_GET, [modeIndex](AsyncWebServerRequest *request)
+              {
         AsyncResponseStream *response = request->beginResponseStream("application/json");
         response->print("{\"onTime\": " + String(relays[modeIndex-1]->getOnTime()) + 
                       ", \"offTime\": " + String(relays[modeIndex-1]->getOffTime()) + "}");
-        request->send(response);
-    });
+        request->send(response); });
   }
 
   // Toggle endpoints for each relay
@@ -397,11 +396,11 @@ void setup()
   }
 
   // This endpoint is used to trigger a time update
-  server.on("/api/time/update", HTTP_POST, [](AsyncWebServerRequest *request) {
+  server.on("/api/time/update", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
     updateTime = true;
     Serial.println("Time update requested");
-    request->send(200, "text/plain", "Time update scheduled");
-  });
+    request->send(200, "text/plain", "Time update scheduled"); });
 
   server.begin();
 }
