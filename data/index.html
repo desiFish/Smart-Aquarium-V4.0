@@ -867,7 +867,7 @@
             });
         }
 
-        // Add LED states tracking
+        // LED states tracking
         const ledStates = {
             1: { enabled: false },  // Changed default to false
             2: { enabled: false },
@@ -1161,7 +1161,7 @@
                 });
             };
 
-            // Add timer duration change handler
+            // timer duration change handler
             led.timerDuration.onchange = () => {
                 if (led.timerDuration.value === "0") {
                     led.timerSwitch.style.display = 'none';
@@ -1255,7 +1255,7 @@
         fetchLEDNames();
         fetchLEDStates();
         initModesFromServer();
-        fetchScheduleTimes(); // Add this line
+        fetchScheduleTimes(); 
         [1, 2, 3, 4].forEach(setupLED);
         setInterval(checkConnection, 5000);
         checkConnection();

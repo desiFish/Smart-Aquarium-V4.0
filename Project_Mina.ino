@@ -15,6 +15,8 @@ const int ledPin = 2;
 
 AsyncWebServer server(80);
 
+bool updateTime = false; // Flag to trigger time update
+
 unsigned long timerStarter = 0;
 int timerDuration = 0;
 
@@ -124,7 +126,7 @@ public:
     saveToPreferences();
   }
 
-  // Add timer methods
+  // timer methods
   void setTimer(int duration, bool start) {
     timerDuration = duration;
     timerActive = start;
@@ -202,7 +204,7 @@ void setup()
               NULL, [ledIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
               {
         String json = String((char*)data);
-        StaticJsonDocument<200> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, json);
         
         if (error) {
@@ -210,7 +212,7 @@ void setup()
           return;
         }
 
-        if (!doc.containsKey("name")) {
+        if (!doc["name"].is<const char*>()) {
           request->send(400, "text/plain", "Missing name field");
           return;
         }
@@ -231,18 +233,18 @@ void setup()
     String endpoint = "/api/led" + String(i) + "/system/state";
     byte ledIndex = i;
 
-    // GET handler (existing)
+    // GET handler for sending state
     server.on(endpoint.c_str(), HTTP_GET, [ledIndex](AsyncWebServerRequest *request)
               {
       AsyncResponseStream *response = request->beginResponseStream("application/json");
       response->print("{\"enabled\": " + String(relays[ledIndex-1]->isEnabled() ? "true" : "false") + "}");
       request->send(response); });
 
-    // POST handler (new)
+    // POST handler for setting state
     server.on(endpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, // Empty handler required
               NULL, [ledIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/)
               {
-        StaticJsonDocument<200> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (const char*)data, len);
         
         if (error) {
@@ -250,7 +252,7 @@ void setup()
           return;
         }
 
-        if (!doc.containsKey("enabled")) {
+        if (!doc["enabled"].is<bool>()) {
           request->send(400, "text/plain", "Missing enabled field");
           return;
         }
@@ -268,18 +270,18 @@ void setup()
     server.on(endpoint.c_str(), HTTP_GET, [ledIndex](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", relays[ledIndex - 1]->getState() ? "ON" : "OFF"); });
 
-    // Add mode endpoint
+    // mode endpoint
     String modeEndpoint = "/api/led" + String(i) + "/mode";
     byte modeIndex = i;
 
-    // GET handler (existing)
+    // GET handler for sending mode
     server.on(modeEndpoint.c_str(), HTTP_GET, [modeIndex](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", relays[modeIndex - 1]->getMode()); });
 
-    // Add POST handler for mode
+    // POST handler for retrieving mode
     server.on(modeEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
               NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
-        StaticJsonDocument<200> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (const char*)data, len);
         
         if (error) {
@@ -287,7 +289,7 @@ void setup()
             return;
         }
 
-        if (!doc.containsKey("mode")) {
+        if (!doc["mode"].is<const char*>()) {
             request->send(400, "text/plain", "Missing mode field");
             return;
         }
@@ -303,11 +305,11 @@ void setup()
         request->send(200, "text/plain", "Mode updated");
     });
 
-    // Add timer endpoint
+    // timer endpoint
     String timerEndpoint = "/api/led" + String(i) + "/timer";
     server.on(timerEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
               NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
-        StaticJsonDocument<200> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (const char*)data, len);
         
         if (error) {
@@ -315,7 +317,7 @@ void setup()
             return;
         }
 
-        if (!doc.containsKey("duration") || !doc.containsKey("state")) {
+        if (!doc["duration"].is<int>() || !doc["state"].is<bool>()) {
             request->send(400, "text/plain", "Missing duration or state field");
             return;
         }
@@ -340,11 +342,11 @@ void setup()
         request->send(200, "text/plain", "Timer started");
     });
 
-    // Add schedule endpoint
+    // schedule endpoint for setting on/off times
     String scheduleEndpoint = "/api/led" + String(i) + "/schedule";
     server.on(scheduleEndpoint.c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, 
               NULL, [modeIndex](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t /*index*/, size_t /*total*/) {
-        StaticJsonDocument<200> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (const char*)data, len);
         
         if (error) {
@@ -352,7 +354,7 @@ void setup()
             return;
         }
 
-        if (!doc.containsKey("onTime") || !doc.containsKey("offTime")) {
+        if (!doc["onTime"].is<const char*>() || !doc["offTime"].is<const char*>()) {
             request->send(400, "text/plain", "Missing time fields");
             return;
         }
@@ -373,7 +375,7 @@ void setup()
         request->send(200, "text/plain", "Schedule updated");
     });
 
-    // Add schedule GET endpoint
+    // schedule GET endpoint for sending on/off times
     String scheduleGetEndpoint = "/api/led" + String(i) + "/schedule";
     server.on(scheduleGetEndpoint.c_str(), HTTP_GET, [modeIndex](AsyncWebServerRequest *request) {
         AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -393,6 +395,13 @@ void setup()
       relays[ledIndex-1]->toggle();
       request->send(200, "text/plain", "Toggled"); });
   }
+
+  // This endpoint is used to trigger a time update
+  server.on("/api/time/update", HTTP_POST, [](AsyncWebServerRequest *request) {
+    updateTime = true;
+    Serial.println("Time update requested");
+    request->send(200, "text/plain", "Time update scheduled");
+  });
 
   server.begin();
 }
