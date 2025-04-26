@@ -964,6 +964,33 @@
             });
         }
 
+        // Add this function after fetchLEDStates
+        function initModesFromServer() {
+            [1, 2, 3, 4].forEach(ledId => {
+                fetch(`/api/led${ledId}/mode`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text();
+                    })
+                    .then(mode => {
+                        mode = mode.toLowerCase().trim();
+                        if (!['manual', 'auto', 'timer'].includes(mode)) return;
+
+                        // Select the correct radio button
+                        const modeSelector = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
+                        if (modeSelector) {
+                            modeSelector.checked = true;
+                        }
+
+                        // Show the correct panel
+                        const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
+                        panels.forEach(p => p.classList.remove('active'));
+                        document.querySelector(`#${mode}Control_${ledId}`).classList.add('active');
+                    })
+                    .catch(error => console.error(`Error loading mode for LED ${ledId}:`, error));
+            });
+        }
+
         // Function to initialize LED controls
         function setupLED(ledId) {
             const led = {
@@ -1192,7 +1219,7 @@
         fetchVersion();
         fetchLEDNames();
         fetchLEDStates();
-        syncModesFromServer(); // Add this line
+        initModesFromServer(); // Add this line before setupLED
         [1, 2, 3, 4].forEach(setupLED);
         setInterval(checkConnection, 5000);
         checkConnection();
