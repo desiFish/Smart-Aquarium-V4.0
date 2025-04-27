@@ -17,7 +17,7 @@
  */
 
 /*
-Sketch uses 1108846 bytes (84%) of program storage space. Maximum is 1310720 bytes.
+Sketch uses 1108838 bytes (84%) of program storage space. Maximum is 1310720 bytes.
 Global variables use 50536 bytes (15%) of dynamic memory, leaving 277144 bytes for local variables. Maximum is 327680 bytes.
 */
 #include <WiFi.h>

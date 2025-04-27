@@ -57,11 +57,15 @@ _Project under development_ 🛠️
 A cutting-edge aquarium control system that will revolutionize your underwater world! 🎮 
 Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 
-### Features to expect:
-- 🌡️ Temperature monitoring
-- 💡 Smart lighting system
+### Upcoming Features:
+- 📟 20x4 LCD Display for on-device status and basic control
+  - Real-time relay status
+  - Current time and schedules
+  - Basic system information
+  - No WiFi required for essential monitoring
+
+### Current Features:
 - 🤜 Better Web UI
-- 🔌 Power control
 - 📱 Mobile-friendly interface
 - 📊 Automatic Controls
 
