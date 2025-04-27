@@ -4,9 +4,21 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
+// NTP
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include "RTClib.h"
+
+RTC_DS3231 rtc; // Initalize rtc
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "asia.pool.ntp.org", 19800); // 19800 is offset of India, asia.pool.ntp.org is close to India 5.5*60*60
+
 // Global preferences instance
 Preferences prefs;
-
+/**
+ * Software version number
+ * Format: major.minor.patch
+ */
 #define SWVersion "v0.1.0-alpha"
 
 const char *ssid = "SonyBraviaX400";
@@ -36,6 +48,12 @@ private:
   int timerDuration;        // Duration in seconds
   bool timerActive;         // If timer is currently running
 
+  /**
+   * @brief Loads relay settings from persistent storage
+   *
+   * Retrieves all saved settings including state, name, timings, and mode
+   * from the preferences storage using the relay's unique number as key
+   */
   void loadFromPreferences()
   {
     String key = String(relayNum); // Use simple numeric key
@@ -53,6 +71,12 @@ private:
                   isOn, isDisabled, name.c_str(), onTime, offTime, mode.c_str());
   }
 
+  /**
+   * @brief Saves current relay settings to persistent storage
+   *
+   * Stores all current settings including state, name, timings, and mode
+   * to the preferences storage using the relay's unique number as key
+   */
   void saveToPreferences()
   {
     String key = String(relayNum);
@@ -71,6 +95,12 @@ private:
   }
 
 public:
+  /**
+   * @brief Constructs a new Relay object
+   *
+   * @param pinNumber GPIO pin number to control the relay
+   * @param num Unique identifier for the relay (1-4)
+   */
   Relay(byte pinNumber, int num) : pin(pinNumber), relayNum(num),
                                    timerStart(0), timerDuration(0), timerActive(false) // Simplified constructor
   {
@@ -79,6 +109,13 @@ public:
     digitalWrite(pin, isOn ? HIGH : LOW);
   }
 
+  /**
+   * @brief Toggles the relay state if enabled
+   *
+   * Switches the relay between ON and OFF states
+   * Only works if the relay is not disabled
+   * Saves the new state to preferences
+   */
   void toggle()
   {
     if (!isDisabled)
@@ -89,6 +126,12 @@ public:
     }
   }
 
+  /**
+   * @brief Sets the schedule times for auto mode
+   *
+   * @param on Time to turn on (HHMM format, e.g. 1430 for 2:30 PM)
+   * @param off Time to turn off (HHMM format)
+   */
   void setTimes(int on, int off)
   {
     onTime = on;
@@ -96,12 +139,23 @@ public:
     saveToPreferences();
   }
 
+  /**
+   * @brief Sets the operating mode of the relay
+   *
+   * @param newMode Operating mode ("manual", "auto", or "timer")
+   */
   void setMode(String newMode)
   {
     mode = newMode;
     saveToPreferences();
   }
 
+  /**
+   * @brief Sets the disabled state of the relay
+   *
+   * @param disabled true to disable the relay, false to enable
+   * When disabled, turns off the relay and prevents state changes
+   */
   void setDisabled(bool disabled)
   {
     isDisabled = disabled;
@@ -113,20 +167,58 @@ public:
     saveToPreferences();
   }
 
+  /**
+   * @brief Gets the current state of the relay
+   * @return true if relay is ON, false if OFF
+   */
   bool getState() { return isOn; }
+
+  /**
+   * @brief Checks if the relay is enabled
+   * @return true if relay is enabled, false if disabled
+   */
   bool isEnabled() { return !isDisabled; }
+
+  /**
+   * @brief Gets the current operating mode
+   * @return String containing mode ("manual", "auto", or "timer")
+   */
   String getMode() { return mode; }
+
+  /**
+   * @brief Gets the scheduled ON time
+   * @return Integer in HHMM format (e.g. 1430 for 2:30 PM)
+   */
   int getOnTime() { return onTime; }
+
+  /**
+   * @brief Gets the scheduled OFF time
+   * @return Integer in HHMM format (e.g. 1430 for 2:30 PM)
+   */
   int getOffTime() { return offTime; }
+
+  /**
+   * @brief Gets the relay's name
+   * @return String containing the custom name of the relay
+   */
   String getName() { return name; }
 
+  /**
+   * @brief Sets a custom name for the relay
+   * @param newName String containing the new name
+   */
   void setName(String newName)
   {
     name = newName;
     saveToPreferences();
   }
 
-  // timer methods
+  /**
+   * @brief Configures and activates/deactivates the timer
+   *
+   * @param duration Duration in seconds for the timer
+   * @param start true to start timer, false to stop
+   */
   void setTimer(int duration, bool start)
   {
     timerDuration = duration;
@@ -137,8 +229,22 @@ public:
     }
   }
 
+  /**
+   * @brief Gets the current timer duration
+   * @return Integer duration in seconds
+   */
   int getTimerDuration() { return timerDuration; }
+
+  /**
+   * @brief Checks if timer is currently running
+   * @return true if timer is active, false otherwise
+   */
   bool isTimerActive() { return timerActive; }
+
+  /**
+   * @brief Gets the timestamp when timer was started
+   * @return unsigned long containing the millis() value when timer started
+   */
   unsigned long getTimerStart() { return timerStart; }
 };
 
@@ -150,8 +256,51 @@ const byte RELAY_PINS[] = {26, 27, 14, 12};
 const byte NUM_RELAYS = 4;
 Relay *relays[NUM_RELAYS]; // Array of pointers
 
+// for creating task attached to CORE 0 of CPU
+TaskHandle_t loop1Task;
+unsigned long previousMillis = 0;
+const long interval = 1000; // 1 seconds interval
+
+/**
+ * @brief Updates RTC time from NTP server
+ * It fetches the current time from an NTP server and updates the RTC.
+ *
+ * @return bool Returns true if the time was successfully updated, false otherwise
+ * @note Requires an active WiFi connection to function
+ */
+bool autoTimeUpdate()
+{
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    timeClient.begin();
+    if (timeClient.update() && timeClient.isTimeSet())
+    {
+      time_t rawtime = timeClient.getEpochTime();
+      struct tm *ti = localtime(&rawtime);
+
+      uint16_t year = ti->tm_year + 1900;
+      uint8_t month = ti->tm_mon + 1;
+      uint8_t day = ti->tm_mday;
+
+      rtc.adjust(DateTime(year, month, day,
+                          timeClient.getHours(),
+                          timeClient.getMinutes(),
+                          timeClient.getSeconds()));
+
+      Serial.println("RTC updated: " + String(year) + "-" +
+                     String(month) + "-" + String(day));
+      return true;
+    }
+    else
+      return false;
+  }
+  else
+    return false;
+}
+
 void setup()
 {
+  Wire.begin();
   Serial.begin(115200);
   pinMode(ledPin, OUTPUT);
 
@@ -168,6 +317,11 @@ void setup()
     Serial.println("Connecting to WiFi..");
   }
   Serial.println(WiFi.localIP());
+
+  if (!rtc.begin())
+    Serial.println("Couldn't find RTC");
+
+  Serial.println("RTC Ready");
 
   // Open preferences at start and keep open
   if (!gPrefs.begin("relay_store", false))
@@ -403,8 +557,88 @@ void setup()
     request->send(200, "text/plain", "Time update scheduled"); });
 
   server.begin();
+  xTaskCreatePinnedToCore(
+      loop1,       /* Task function. */
+      "loop1Task", /* name of task. */
+      10000,       /* Stack size of task */
+      NULL,        /* parameter of the task */
+      1,           /* priority of the task */
+      &loop1Task,  /* Task handle to keep track of created task */
+      0);          /* pin task to core 0 */
 }
 
 void loop()
 {
+}
+
+void loop1(void *pvParameters)
+{
+  for (;;)
+  {
+    byte relayCount = 0;
+    unsigned long currentMillis = millis();
+
+    if (updateTime) // automatically updates time when true
+    {
+      if (autoTimeUpdate())
+      {
+        Serial.println("Time updated successfully");
+        updateTime = false;
+      }
+      else
+        Serial.println("Failed to update time");
+    }
+
+    // Checking for AUTO-MODE schedule every second
+    if (currentMillis - previousMillis >= interval)
+    {
+      previousMillis = currentMillis;
+      for (byte i = 0; i < NUM_RELAYS; i++)
+      {
+        if (relays[i]->isEnabled())
+        {
+          // Check if the relay is in auto mode and turn it on/off based on the schedule
+          if (relays[i]->getMode() == "auto")
+          {
+            bool shouldBeOn = turnOnRelay(relays[i]->getOnTime(), relays[i]->getOffTime());
+            if (shouldBeOn != relays[i]->getState())
+            {
+              relays[i]->toggle(); // Toggle only if current state differs from desired state
+            }
+          }
+        }
+      }
+    }
+    delay(50);
+  }
+}
+
+/**
+ * @brief Determines if relay should be on based on current time and schedule
+ *
+ * Checks if the current time falls within the scheduled on/off period.
+ * Handles both same-day schedules (e.g., ON: 09:00, OFF: 17:00) and
+ * overnight schedules (e.g., ON: 22:00, OFF: 06:00).
+ *
+ * @param onTime Time to turn on in HHMM format (e.g., 1430 for 2:30 PM)
+ * @param offTime Time to turn off in HHMM format
+ * @return true if current time is within the ON period
+ * @return false if current time is within the OFF period
+ *
+ * @note For overnight schedules (offTime < onTime), returns true if
+ *       current time is after onTime OR before offTime
+ */
+bool turnOnRelay(int onTime, int offTime)
+{
+  DateTime now = rtc.now();
+  byte h = now.hour();
+  byte m = now.minute();
+  int timeString = h * 100 + m;
+
+  if (offTime > onTime)
+  {
+    return timeString >= onTime && timeString < offTime;
+  }
+  // Handle overnight case (e.g., ON: 22:00, OFF: 06:00)
+  return timeString >= onTime || timeString < offTime;
 }
