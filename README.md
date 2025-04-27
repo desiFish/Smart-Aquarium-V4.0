@@ -176,6 +176,8 @@ Stay tuned for more updates! 🚀
    - Add `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json` to Additional Board URLs
    - Install "ESP32 by Espressif Systems" from Boards Manager
 
+> ⚠️ **Hardware Compatibility**: Currently tested only on ESP32 DevKit V1 (30-pin version). Other ESP32 boards may work but are untested.
+
 ### Required Libraries
 Install these from Arduino Library Manager:
 - [ESPAsyncWebServer](https://github.com/ESP32Async/ESPAsyncWebServer) - Async HTTP and WebSocket server
