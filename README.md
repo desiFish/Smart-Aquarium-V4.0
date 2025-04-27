@@ -68,6 +68,7 @@ Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 - 🤜 Better Web UI
 - 📱 Mobile-friendly interface
 - 📊 Automatic Controls
+- ⚡ Dual-core ESP32 support only (ESP32, ESP32-WROOM, etc.)
 
 ### Technical Details:
 - 💾 Uses LittleFS for storing web interface files
