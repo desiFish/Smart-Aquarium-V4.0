@@ -1,3 +1,9 @@
+
+
+/*
+Sketch uses 1108846 bytes (84%) of program storage space. Maximum is 1310720 bytes.
+Global variables use 50536 bytes (15%) of dynamic memory, leaving 277144 bytes for local variables. Maximum is 327680 bytes.
+*/
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
@@ -19,7 +25,7 @@ Preferences prefs;
  * Software version number
  * Format: major.minor.patch
  */
-#define SWVersion "v0.1.0-alpha"
+#define SWVersion "v0.2.0-alpha"
 
 const char *ssid = "SonyBraviaX400";
 const char *password = "79756622761";
@@ -66,9 +72,14 @@ private:
     onTime = preferences.getInt((key + "_onTime").c_str(), 0);
     offTime = preferences.getInt((key + "_offTime").c_str(), 0);
     mode = preferences.getString((key + "_mode").c_str(), "manual");
+    timerDuration = preferences.getInt((key + "_timerDuration").c_str(), 0);
+    timerActive = preferences.getBool((key + "_timerActive").c_str(), false);
+    timerStart = preferences.getULong((key + "_timerStart").c_str(), 0);
 
     Serial.printf("Loaded: on=%d, disabled=%d, name=%s, onTime=%d, offTime=%d, mode=%s\n",
                   isOn, isDisabled, name.c_str(), onTime, offTime, mode.c_str());
+    Serial.printf("Loaded timer: duration=%d, active=%d, start=%lu\n",
+                  timerDuration, timerActive, timerStart);
   }
 
   /**
@@ -89,9 +100,14 @@ private:
     preferences.putInt((key + "_onTime").c_str(), onTime);
     preferences.putInt((key + "_offTime").c_str(), offTime);
     preferences.putString((key + "_mode").c_str(), mode);
+    preferences.putInt((key + "_timerDuration").c_str(), timerDuration);
+    preferences.putBool((key + "_timerActive").c_str(), timerActive);
+    preferences.putULong((key + "_timerStart").c_str(), timerStart);
 
     Serial.printf("Saved: on=%d, disabled=%d, name=%s, onTime=%d, offTime=%d, mode=%s\n",
                   isOn, isDisabled, name.c_str(), onTime, offTime, mode.c_str());
+    Serial.printf("Saved timer: duration=%d, active=%d, start=%lu\n",
+                  timerDuration, timerActive, timerStart);
   }
 
 public:
@@ -227,6 +243,7 @@ public:
     {
       timerStart = millis();
     }
+    saveToPreferences(); // Save timer state to persistent memory
   }
 
   /**
@@ -538,7 +555,7 @@ void setup()
         request->send(response); });
   }
 
-  // Toggle endpoints for each relay
+  // Manual Mode Toggle endpoints for each relay
   for (byte i = 1; i < 5; i++)
   {
     String endpoint = "/api/led" + String(i) + "/toggle";
@@ -587,6 +604,23 @@ void loop1(void *pvParameters)
       }
       else
         Serial.println("Failed to update time");
+    }
+
+    // Check TIMER-MODE for all relays
+    for (byte i = 0; i < NUM_RELAYS; i++)
+    {
+      if (relays[i]->isEnabled() && relays[i]->getMode() == "timer" && relays[i]->isTimerActive())
+      {
+        unsigned long elapsedTime = (currentMillis - relays[i]->getTimerStart()) / 1000; // Convert to seconds
+
+        if (elapsedTime >= relays[i]->getTimerDuration())
+        {
+          relays[i]->toggle();           // Toggle state after duration expires
+          relays[i]->setTimer(0, false); // Deactivate timer
+          relays[i]->setMode("manual");  // Return to manual mode
+          Serial.printf("Timer completed for relay %d\n", i + 1);
+        }
+      }
     }
 
     // Checking for AUTO-MODE schedule every second
