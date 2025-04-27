@@ -58,7 +58,7 @@ A cutting-edge aquarium control system that will revolutionize your underwater w
 Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 
 ### Upcoming Features:
-- 📟 20x4 LCD Display for on-device status and basic control
+- 📟 20x4 LCD Display for on-device status
   - Real-time relay status
   - Current time and schedules
   - Basic system information
