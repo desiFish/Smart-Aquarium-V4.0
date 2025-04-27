@@ -50,9 +50,6 @@ AsyncWebServer server(80);
 
 bool updateTime = false; // Flag to trigger time update
 
-unsigned long timerStarter = 0;
-int timerDuration = 0;
-
 class Relay
 {
 private:
