@@ -1,7 +1,10 @@
 # Project_Mina 🐠
-**M**icrocontroller-based, **I**nteractive, **N**etworked, **A**quarium
+[![M](https://img.shields.io/badge/M-icrocontroller_based-blue)]()
+[![I](https://img.shields.io/badge/I-nteractive-green)]()
+[![N](https://img.shields.io/badge/N-etworked-orange)]()
+[![A](https://img.shields.io/badge/A-quarium-red)]()
 
-> In Sanskrit, "Mina" (मीन) represents the fish, symbolizing freedom, fluidity, and the eternal flow of life. Just as fish navigate the depths with graceful purpose, this project aims to create harmony between technology and aquatic life. The name embodies our philosophy of maintaining balance in the artificial ecosystems we create, guided by ancient wisdom yet powered by modern innovation.
+> In Sanskrit, "Mina" (मीन) represents the fish, symbolizing freedom, fluidity, and the eternal flow of life. As the twelfth and final sign of the zodiac (known as "Pisces" in Western astrology), Mina embodies adaptability and spiritual wisdom. Just as fish navigate the depths with graceful purpose, this project aims to create harmony between technology and aquatic life. The name embodies our philosophy of maintaining balance in the artificial ecosystems we create, guided by ancient wisdom yet powered by modern innovation.
 
 [![GitHub stars](https://img.shields.io/github/stars/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/network)
