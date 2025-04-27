@@ -45,7 +45,6 @@ Preferences prefs;
 
 const char *ssid = "SonyBraviaX400";
 const char *password = "79756622761";
-const int ledPin = 2;
 
 AsyncWebServer server(80);
 
@@ -335,8 +334,6 @@ void setup()
 {
   Wire.begin();
   Serial.begin(115200);
-  pinMode(ledPin, OUTPUT);
-
   if (!LittleFS.begin(true))
   {
     Serial.println("An Error has occurred while mounting LittleFS");
