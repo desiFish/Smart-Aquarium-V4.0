@@ -86,7 +86,8 @@ Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 
 ### Scalability Note:
 - ✨ Backend code is fully scalable - just modify NUM_RELAYS and RELAY_PINS array
-- ⚠️ Web UI currently fixed at 4 relays, needs manual adjustment for different counts
+- 🔧 Web UI JavaScript is scalable - all functions work with any relay ID
+- ⚠️ HTML components need manual duplication with correct ID numbers for additional relays
 - 📍 Default pin configuration: GPIO 26, 27, 14, 12
 - 🔧 Max relay count limited only by available GPIO pins
 

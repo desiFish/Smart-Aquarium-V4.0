@@ -538,6 +538,50 @@
             color: white;
             transform: translateY(-1px);
         }
+
+        /* Timer Animation Styles */
+        .timer-animation {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .timer-animation.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .timer-countdown {
+            font-size: 1.2rem;
+            color: #2196F3;
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .timer-controls {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+            transition: opacity 0.3s;
+        }
+
+        .timer-controls.hidden {
+            opacity: 0;
+            pointer-events: none;
+            position: absolute;
+        }
+
+        #timerControl_1,
+        #timerControl_2,
+        #timerControl_3,
+        #timerControl_4 {
+            position: relative;
+            min-height: 80px;
+        }
     </style>
 </head>
 
@@ -597,10 +641,11 @@
             </div>
 
             <div id="timerControl_1" class="control-panel">
-                <div>
+                <div class="timer-controls">
                     <label>Timer Duration:</label>
                     <select id="timerDuration_1" onchange="updateTimerToggle(1)">
                         <option value="0">No Timer</option>
+                        <option value="60">1 minute</option>
                         <option value="300">5 minutes</option>
                         <option value="600">10 minutes</option>
                         <option value="900">15 minutes</option>
@@ -615,6 +660,9 @@
                         <span class="slider"></span>
                     </label>
                     <span class="switch-label">ON</span>
+                </div>
+                <div id="timerAnimation_1" class="timer-animation">
+                    <div id="timerCountdown_1" class="timer-countdown">00:00</div>
                 </div>
             </div>
 
@@ -670,10 +718,11 @@
             </div>
 
             <div id="timerControl_2" class="control-panel">
-                <div>
+                <div class="timer-controls">
                     <label>Timer Duration:</label>
                     <select id="timerDuration_2" onchange="updateTimerToggle(2)">
                         <option value="0">No Timer</option>
+                        <option value="60">1 minute</option>
                         <option value="300">5 minutes</option>
                         <option value="600">10 minutes</option>
                         <option value="900">15 minutes</option>
@@ -688,6 +737,9 @@
                         <span class="slider"></span>
                     </label>
                     <span class="switch-label">ON</span>
+                </div>
+                <div id="timerAnimation_2" class="timer-animation">
+                    <div id="timerCountdown_2" class="timer-countdown">00:00</div>
                 </div>
             </div>
 
@@ -743,10 +795,11 @@
             </div>
 
             <div id="timerControl_3" class="control-panel">
-                <div>
+                <div class="timer-controls">
                     <label>Timer Duration:</label>
                     <select id="timerDuration_3" onchange="updateTimerToggle(3)">
                         <option value="0">No Timer</option>
+                        <option value="60">1 minute</option>
                         <option value="300">5 minutes</option>
                         <option value="600">10 minutes</option>
                         <option value="900">15 minutes</option>
@@ -761,6 +814,9 @@
                         <span class="slider"></span>
                     </label>
                     <span class="switch-label">ON</span>
+                </div>
+                <div id="timerAnimation_3" class="timer-animation">
+                    <div id="timerCountdown_3" class="timer-countdown">00:00</div>
                 </div>
             </div>
 
@@ -816,10 +872,11 @@
             </div>
 
             <div id="timerControl_4" class="control-panel">
-                <div>
+                <div class="timer-controls">
                     <label>Timer Duration:</label>
                     <select id="timerDuration_4" onchange="updateTimerToggle(4)">
                         <option value="0">No Timer</option>
+                        <option value="60">1 minute</option>
                         <option value="300">5 minutes</option>
                         <option value="600">10 minutes</option>
                         <option value="900">15 minutes</option>
@@ -834,6 +891,9 @@
                         <span class="slider"></span>
                     </label>
                     <span class="switch-label">ON</span>
+                </div>
+                <div id="timerAnimation_4" class="timer-animation">
+                    <div id="timerCountdown_4" class="timer-countdown">00:00</div>
                 </div>
             </div>
 
@@ -994,6 +1054,11 @@
                         const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
                         panels.forEach(p => p.classList.remove('active'));
                         document.querySelector(`#${mode}Control_${ledId}`).classList.add('active');
+
+                        // If timer mode, check timer state
+                        if (mode === 'timer') {
+                            checkTimerState(ledId);
+                        }
                     })
                     .catch(error => console.error(`Error loading mode for LED ${ledId}:`, error));
             });
@@ -1028,6 +1093,131 @@
             });
         }
 
+        // Add active timer tracking
+        const activeTimers = {
+            1: null,
+            2: null,
+            3: null,
+            4: null
+        };
+
+        function showTimerAnimation(ledId) {
+            const elements = {
+                animation: document.querySelector(`#timerAnimation_${ledId}`),
+                countdown: document.querySelector(`#timerCountdown_${ledId}`),
+                controls: document.querySelector(`#timerControl_${ledId} .timer-controls`),
+                switchContainer: document.querySelector(`#timerSwitchContainer_${ledId}`)
+            };
+
+            if (activeTimers[ledId]) {
+                clearInterval(activeTimers[ledId]);
+            }
+
+            // Hide controls and show animation with switch
+            elements.controls.style.display = 'none';
+            elements.switchContainer.style.display = 'flex';
+            elements.animation.classList.add('active');
+
+            function updateTimerDisplay() {
+                fetch(`/api/led${ledId}/timer/state`)
+                    .then(response => response.json())
+                    .then(state => {
+                        if (!state.active || !state.remaining) {
+                            hideTimerAnimation(ledId);
+                            return;
+                        }
+
+                        const minutes = Math.floor(state.remaining / 60);
+                        const seconds = state.remaining % 60;
+                        elements.countdown.textContent =
+                            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    })
+                    .catch(() => hideTimerAnimation(ledId));
+            }
+
+            updateTimerDisplay();
+            activeTimers[ledId] = setInterval(updateTimerDisplay, 1000);
+        }
+
+        function hideTimerAnimation(ledId) {
+            if (activeTimers[ledId]) {
+                clearInterval(activeTimers[ledId]);
+                activeTimers[ledId] = null;
+            }
+
+            const elements = {
+                animation: document.querySelector(`#timerAnimation_${ledId}`),
+                controls: document.querySelector(`#timerControl_${ledId} .timer-controls`),
+                switchContainer: document.querySelector(`#timerSwitchContainer_${ledId}`),
+                countdown: document.querySelector(`#timerCountdown_${ledId}`),
+                durationSelect: document.querySelector(`#timerDuration_${ledId}`),
+                timerToggle: document.querySelector(`#timerToggle_${ledId}`)
+            };
+
+            // Reset all timer controls
+            elements.animation.classList.remove('active');
+            elements.controls.style.display = 'flex';
+            elements.switchContainer.style.display = 'none';
+            elements.countdown.textContent = '00:00';
+            elements.durationSelect.value = "0";
+            elements.timerToggle.checked = false;
+        }
+
+        function checkTimerState(ledId) {
+            fetch(`/api/led${ledId}/timer/state`)
+                .then(response => response.json())
+                .then(state => {
+                    // If no state or not active, ensure controls are visible and reset
+                    if (!state || !state.active) {
+                        hideTimerAnimation(ledId);
+                        const elements = {
+                            controls: document.querySelector(`#timerControl_${ledId} .timer-controls`),
+                            switchContainer: document.querySelector(`#timerSwitchContainer_${ledId}`)
+                        };
+                        elements.controls.classList.remove('hidden');
+                        elements.switchContainer.classList.remove('hidden');
+                        return;
+                    }
+
+                    // Switch to timer mode and show panel
+                    const modeSelector = document.querySelector(`#modeTimer_${ledId}`);
+                    const timerPanel = document.querySelector(`#timerControl_${ledId}`);
+
+                    modeSelector.checked = true;
+                    document.querySelectorAll(`#led${ledId} .control-panel`).forEach(p => p.classList.remove('active'));
+                    timerPanel.classList.add('active');
+
+                    // Set duration and toggle
+                    const durationSelect = document.querySelector(`#timerDuration_${ledId}`);
+                    const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
+                    durationSelect.value = state.duration;
+                    timerToggle.checked = true;
+
+                    // Show animation without hiding controls initially
+                    const elements = {
+                        animation: document.querySelector(`#timerAnimation_${ledId}`),
+                        countdown: document.querySelector(`#timerCountdown_${ledId}`)
+                    };
+                    elements.animation.classList.add('active');
+                    showTimerAnimation(ledId);
+                })
+                .catch(error => console.error('Error checking timer state:', error));
+        }
+
+        // Add this function
+        function checkAllTimerStates() {
+            [1, 2, 3, 4].forEach(ledId => {
+                fetch(`/api/led${ledId}/mode`)
+                    .then(response => response.text())
+                    .then(mode => {
+                        if (mode.trim().toLowerCase() === 'timer') {
+                            checkTimerState(ledId);
+                        }
+                    })
+                    .catch(error => console.error('Error checking timer mode:', error));
+            });
+        }
+
         // Function to initialize LED controls
         function setupLED(ledId) {
             const led = {
@@ -1047,10 +1237,21 @@
                 timerSwitch: document.querySelector(`#timerSwitchContainer_${ledId}`)
             };
 
-            // Mode selection only updates UI
+            // Mode selection only updates UI panels
             led.modes.forEach(mode => {
                 mode.onclick = () => {
                     if (!ledStates[ledId].enabled) return;
+
+                    // Reset timer state if switching away from timer mode
+                    const currentMode = Array.from(led.modes).find(m => m.checked)?.value;
+                    if (currentMode === 'timer' && mode.value !== 'timer') {
+                        const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
+                        timerToggle.checked = false;
+                        if (activeTimers[ledId]) {
+                            hideTimerAnimation(ledId);
+                        }
+                    }
+
                     Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                     led.panels[mode.value].classList.add('active');
                 };
@@ -1060,13 +1261,19 @@
             led.toggle.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
 
+                // Stop any timer animation and clear timer toggle
+                if (activeTimers[ledId]) {
+                    hideTimerAnimation(ledId);
+                    const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
+                    timerToggle.checked = false;
+                }
+
                 fetch(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'manual' })
                 })
                     .then(() => {
-                        // After mode is set, toggle the LED
                         return fetch(`/api/led${ledId}/toggle`, { method: 'POST' });
                     })
                     .then(() => updateLEDStatus(ledId))
@@ -1112,6 +1319,37 @@
             timerToggle.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
 
+                // If timer is already running, just stop it
+                if (activeTimers[ledId]) {
+                    fetch(`/api/led${ledId}/timer`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ duration: 0, state: false })
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Failed to stop timer');
+                            return response.text();
+                        })
+                        .then(result => {
+                            if (result === "Timer stopped") {
+                                hideTimerAnimation(ledId);
+                                timerToggle.checked = false;
+                                // Reset duration dropdown to "No Timer"
+                                const durationSelect = document.querySelector(`#timerDuration_${ledId}`);
+                                durationSelect.value = "0";
+                                // Update switch visibility
+                                const switchContainer = document.querySelector(`#timerSwitchContainer_${ledId}`);
+                                switchContainer.style.display = 'none';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            timerToggle.checked = true;
+                        });
+                    return;
+                }
+
+                // Otherwise start a new timer
                 const duration = document.querySelector(`#timerDuration_${ledId}`).value;
                 if (duration === "0") {
                     alert('Please select a duration');
@@ -1131,15 +1369,30 @@
                             body: JSON.stringify({ duration: parseInt(duration), state: timerToggle.checked })
                         });
                     })
+                    .then(response => response.text())
+                    .then(result => {
+                        if (result === "Timer started") {
+                            showTimerAnimation(ledId);
+                        } else if (result === "Timer stopped") {
+                            hideTimerAnimation(ledId);
+                        }
+                    })
                     .catch(error => {
                         console.error('Error:', error);
-                        timerToggle.checked = !timerToggle.checked; // Revert on error
+                        timerToggle.checked = !timerToggle.checked;
                     });
             };
 
             // Modify disable toggle handler
             led.disableToggle.onclick = () => {
                 ledStates[ledId].enabled = !led.disableToggle.checked;
+
+                // Stop any active timer animation
+                if (!ledStates[ledId].enabled && activeTimers[ledId]) {
+                    hideTimerAnimation(ledId);
+                    const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
+                    timerToggle.checked = false;
+                }
 
                 // Update UI state
                 led.allControls.forEach(panel => {
@@ -1258,15 +1511,29 @@
                 });
         }
 
-        // Initialize everything
-        fetchVersion();
-        fetchLEDNames();
-        fetchLEDStates();
-        initModesFromServer();
-        fetchScheduleTimes();
-        [1, 2, 3, 4].forEach(setupLED);
-        setInterval(checkConnection, 5000);
-        checkConnection();
+        // Replace existing initialization code at the bottom with:
+        function initializeApp() {
+            Promise.all([
+                fetchLEDStates(),
+                fetchLEDNames(),
+                fetchScheduleTimes()
+            ]).then(() => {
+                // After states are loaded, initialize modes and timers
+                initModesFromServer();
+                [1, 2, 3, 4].forEach(ledId => {
+                    setupLED(ledId);
+                    checkTimerState(ledId); // Check timer state for each LED
+                });
+            });
+
+            // Setup periodic checks
+            setInterval(checkConnection, 5000);
+            checkConnection();
+            fetchVersion();
+        }
+
+        // Start the app
+        initializeApp();
     </script>
 </body>
 

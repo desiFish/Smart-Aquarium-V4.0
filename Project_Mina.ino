@@ -17,7 +17,7 @@
  */
 
 /*
-Sketch uses 1108838 bytes (84%) of program storage space. Maximum is 1310720 bytes.
+Sketch uses 1110306 bytes (84%) of program storage space. Maximum is 1310720 bytes.
 Global variables use 50536 bytes (15%) of dynamic memory, leaving 277144 bytes for local variables. Maximum is 327680 bytes.
 */
 #include <WiFi.h>
@@ -41,7 +41,7 @@ Preferences prefs;
  * Software version number
  * Format: major.minor.patch
  */
-#define SWVersion "v0.2.0-alpha"
+#define SWVersion "v0.2.1-alpha"
 
 const char *ssid = "SonyBraviaX400";
 const char *password = "79756622761";
@@ -122,6 +122,17 @@ private:
                   timerDuration, timerActive, timerStart);
   }
 
+  /**
+   * @brief Safely stops any active timer
+   */
+  void stopTimer()
+  {
+    timerActive = false;
+    timerStart = 0;
+    timerDuration = 0;
+    saveToPreferences();
+  }
+
 public:
   /**
    * @brief Constructs a new Relay object
@@ -174,6 +185,11 @@ public:
    */
   void setMode(String newMode)
   {
+    // Stop timer if switching away from timer mode
+    if (mode == "timer" && newMode != "timer")
+    {
+      stopTimer();
+    }
     mode = newMode;
     saveToPreferences();
   }
@@ -191,6 +207,11 @@ public:
     {
       isOn = false;
       digitalWrite(pin, LOW);
+      // Stop any active timer when disabling
+      if (timerActive)
+      {
+        stopTimer();
+      }
     }
     saveToPreferences();
   }
@@ -255,7 +276,11 @@ public:
     {
       timerStart = millis();
     }
-    saveToPreferences(); // Save timer state to persistent memory
+    else
+    {
+      stopTimer();
+    }
+    saveToPreferences();
   }
 
   /**
@@ -275,6 +300,20 @@ public:
    * @return unsigned long containing the millis() value when timer started
    */
   unsigned long getTimerStart() { return timerStart; }
+
+  /**
+   * @brief Gets the remaining time for the timer
+   * @return unsigned long containing the remaining time in seconds
+   */
+  unsigned long getRemainingTime()
+  {
+    if (!timerActive)
+      return 0;
+    unsigned long elapsed = (millis() - timerStart) / 1000;
+    if (elapsed >= timerDuration)
+      return 0;
+    return timerDuration - elapsed;
+  }
 };
 
 // Initialize preferences once
@@ -297,7 +336,7 @@ const long interval = 1000; // 1 seconds interval
  * @return bool Returns true if the time was successfully updated, false otherwise
  * @note Requires an active WiFi connection to function
  */
-bool autoTimeUpdate()
+bool rtcTimeUpdater()
 {
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -563,6 +602,16 @@ void setup()
         response->print("{\"onTime\": " + String(relays[modeIndex-1]->getOnTime()) + 
                       ", \"offTime\": " + String(relays[modeIndex-1]->getOffTime()) + "}");
         request->send(response); });
+
+    // Add timer state endpoint inside server setup
+    String timerStateEndpoint = "/api/led" + String(i) + "/timer/state";
+    server.on(timerStateEndpoint.c_str(), HTTP_GET, [modeIndex](AsyncWebServerRequest *request)
+              {
+        AsyncResponseStream *response = request->beginResponseStream("application/json");
+        const auto remaining = relays[modeIndex-1]->getRemainingTime();
+        response->print("{\"active\": " + String(relays[modeIndex-1]->isTimerActive() ? "true" : "false") + 
+                      ", \"remaining\": " + String(remaining) + "}");
+        request->send(response); });
   }
 
   // Manual Mode Toggle endpoints for each relay
@@ -607,7 +656,7 @@ void loop1(void *pvParameters)
 
     if (updateTime) // automatically updates time when true
     {
-      if (autoTimeUpdate())
+      if (rtcTimeUpdater())
       {
         Serial.println("Time updated successfully");
         updateTime = false;
