@@ -58,11 +58,20 @@ A cutting-edge aquarium control system that will revolutionize your underwater w
 Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 
 ### Upcoming Features:
-- 📟 20x4 LCD Display for on-device status
-  - Real-time relay status
-  - Current time and schedules
-  - Basic system information
-  - No WiFi required for essential monitoring
+- ~~📟 20x4 LCD Display for on-device status~~
+  ~~- Real-time relay status~~
+  ~~- Current time and schedules~~
+  ~~- Basic system information~~
+  ~~- No WiFi required for essential monitoring~~
+
+> Note: Since this version is using webserver, I am putting away the LCD option, since all controls are available in web server. Rather I will use 4 WS2812B RGB LEDs for simple status purpose.
+> The LCD version along with buttons will feature in Smart Aquarium V4.1
+
+- 💡 4x WS2812B RGB LEDs for status indication
+  - Visual relay status indication
+  - Network connection status
+  - System status alerts
+  - Error condition warnings
 
 ### Current Features:
 - 🤜 Better Web UI
