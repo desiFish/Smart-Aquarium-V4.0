@@ -15,6 +15,23 @@
 [![ESP32](https://img.shields.io/badge/device-ESP32-blue)](https://github.com/desiFish/Project_Mina)
 [![Web UI](https://img.shields.io/badge/interface-Web%20UI-brightgreen)](https://github.com/desiFish/Project_Mina)
 
+## 📱 Preview
+
+<table>
+<tr>
+    <td align="center" colspan="2">
+        <img src="/index_new.png" alt="New Control Interface" width="75%">
+        <br>New Interface
+    </td>
+</tr>
+<tr>
+    <td align="center" colspan="2">
+        <img src="images/Tentative_Schematic_Smart-Aquarium-V4.0_2025-04-29.png" alt="Circuit Schematic" width="75%">
+        <br>Tentative Circuit Schematic V4.0
+    </td>
+</tr>
+</table>
+
 ## ⚠️ SAFETY WARNING ⚡
 
 **DANGER: This project involves HIGH VOLTAGE (240V AC) which can be LETHAL!**
@@ -154,35 +171,6 @@ When using this project, please:
 - 🐦 Share on Twitter/X
 - 📱 Post on aquarium forums
 - 👥 Tell your fish-keeping friends
-
-## 📱 Preview
-
-<table>
-<tr>
-    <td align="center" width="50%">
-        <img src="/index.png" alt="Main Control Page" width="100%">
-        <br>Main Control
-    </td>
-    <td align="center" width="50%">
-        <img src="/settings.png" alt="Settings Page" width="100%">
-        <br>Settings
-    </td>
-</tr>
-<tr>
-    <td align="center" colspan="2">
-        <img src="/index_new.png" alt="New Control Interface" width="50%">
-        <br>New Interface
-    </td>
-</tr>
-<tr>
-    <td align="center" colspan="2">
-        <img src="images/Tentative_Schematic_Smart-Aquarium-V4.0_2025-04-29.png" alt="Circuit Schematic" width="75%">
-        <br>Tentative Circuit Schematic V4.0
-    </td>
-</tr>
-</table>
-
-Stay tuned for more updates! 🚀
 
 ## 📦 Installation
 
