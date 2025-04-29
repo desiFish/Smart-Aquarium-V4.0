@@ -13,7 +13,6 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px 20px 40px;
-            /* Added bottom padding for footer */
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -943,7 +942,7 @@
             4: { enabled: false }
         };
 
-        // Add new function to fetch LED states
+        // function to fetch LED states
         function fetchLEDStates() {
             [1, 2, 3, 4].forEach(ledId => {
                 fetch(`/api/led${ledId}/system/state`)
@@ -1093,7 +1092,7 @@
             });
         }
 
-        // Add active timer tracking
+        // active timer tracking
         const activeTimers = {
             1: null,
             2: null,
@@ -1204,7 +1203,6 @@
                 .catch(error => console.error('Error checking timer state:', error));
         }
 
-        // Add this function
         function checkAllTimerStates() {
             [1, 2, 3, 4].forEach(ledId => {
                 fetch(`/api/led${ledId}/mode`)

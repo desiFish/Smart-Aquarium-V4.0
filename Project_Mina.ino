@@ -135,6 +135,25 @@ private:
 
 public:
   /**
+   * @brief Determines if relay should be on based on current time and schedule
+   * @return true if current time is within the ON period
+   */
+  bool shouldBeOnNow()
+  {
+    DateTime now = rtc.now();
+    byte h = now.hour();
+    byte m = now.minute();
+    int timeString = h * 100 + m;
+
+    if (offTime > onTime)
+    {
+      return timeString >= onTime && timeString < offTime;
+    }
+    // Handle overnight case (e.g., ON: 22:00, OFF: 06:00)
+    return timeString >= onTime || timeString < offTime;
+  }
+
+  /**
    * @brief Constructs a new Relay object
    *
    * @param pinNumber GPIO pin number to control the relay
@@ -643,10 +662,34 @@ void setup()
       0);          /* pin task to core 0 */
 }
 
+/**
+ * @brief loop() is the main loop of the program.
+ * It is intentionally left empty as the main logic is handled in the FreeRTOS task loop1().
+ * loop() runs on core 1 of the ESP32. In this case, server, wifi, and other tasks are running on core 1.
+ */
 void loop()
 {
+  // lcd code will be here
 }
 
+/**
+ * @brief loop1() is the main task for handling relay operations.
+ *
+ * This function runs in an infinite loop, checking the current time and relay states
+ * every second. It handles the main logic of the program, including checking relay states,
+ * updating the RTC time, and managing timers.
+ *
+ * @param pvParameters Pointer to task parameters (not used)
+ *
+ * @note
+ * This function is pinned to core 0 of the ESP32 using FreeRTOS.
+ * It is responsible for managing the relays and their states.
+ * It checks the current time and relay states every second.
+ * It also handles the timer functionality for each relay.
+ * The function uses the millis() function to track elapsed time.
+ * The function checks if the relay is in auto mode and turns it on/off based on the schedule.
+ * It also checks if the relay is in timer mode and toggles the state after the duration expires.
+ */
 void loop1(void *pvParameters)
 {
   for (;;)
@@ -693,7 +736,7 @@ void loop1(void *pvParameters)
           // Check if the relay is in auto mode and turn it on/off based on the schedule
           if (relays[i]->getMode() == "auto")
           {
-            bool shouldBeOn = turnOnRelay(relays[i]->getOnTime(), relays[i]->getOffTime());
+            bool shouldBeOn = relays[i]->shouldBeOnNow();
             if (shouldBeOn != relays[i]->getState())
             {
               relays[i]->toggle(); // Toggle only if current state differs from desired state
@@ -704,34 +747,4 @@ void loop1(void *pvParameters)
     }
     delay(50);
   }
-}
-
-/**
- * @brief Determines if relay should be on based on current time and schedule
- *
- * Checks if the current time falls within the scheduled on/off period.
- * Handles both same-day schedules (e.g., ON: 09:00, OFF: 17:00) and
- * overnight schedules (e.g., ON: 22:00, OFF: 06:00).
- *
- * @param onTime Time to turn on in HHMM format (e.g., 1430 for 2:30 PM)
- * @param offTime Time to turn off in HHMM format
- * @return true if current time is within the ON period
- * @return false if current time is within the OFF period
- *
- * @note For overnight schedules (offTime < onTime), returns true if
- *       current time is after onTime OR before offTime
- */
-bool turnOnRelay(int onTime, int offTime)
-{
-  DateTime now = rtc.now();
-  byte h = now.hour();
-  byte m = now.minute();
-  int timeString = h * 100 + m;
-
-  if (offTime > onTime)
-  {
-    return timeString >= onTime && timeString < offTime;
-  }
-  // Handle overnight case (e.g., ON: 22:00, OFF: 06:00)
-  return timeString >= onTime || timeString < offTime;
 }
