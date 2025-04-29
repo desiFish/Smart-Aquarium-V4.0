@@ -20,7 +20,7 @@
 <table>
 <tr>
     <td align="center" colspan="2">
-        <img src="/index_new.png" alt="New Control Interface" width="75%">
+        <img src="images/index_new.png" alt="New Control Interface" width="75%">
         <br>New Interface
     </td>
 </tr>
