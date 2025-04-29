@@ -165,6 +165,12 @@ When using this project, please:
         <br>New Interface
     </td>
 </tr>
+<tr>
+    <td align="center" colspan="2">
+        <img src="images/Tentative_Schematic_Smart-Aquarium-V4.0_2025-04-29.png" alt="Circuit Schematic" width="75%">
+        <br>Tentative Circuit Schematic V4.0
+    </td>
+</tr>
 </table>
 
 Stay tuned for more updates! 🚀
