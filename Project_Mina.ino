@@ -26,6 +26,8 @@ Global variables use 50536 bytes (15%) of dynamic memory, leaving 277144 bytes f
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
+#include "global.h" //remove this
+
 // NTP
 #include <NTPClient.h>
 #include <WiFiUdp.h>
@@ -43,8 +45,9 @@ Preferences prefs;
  */
 #define SWVersion "v0.2.1-alpha"
 
-const char *ssid = "SonyBraviaX400";
-const char *password = "79756622761";
+// WiFi credentials
+const char *ssid = pssid;     // replace "pssid" and with your Wifi Name a.k.a SSID (STRING type)
+const char *password = ppass; // replace "ppass" with WIFI Password (STRING type)
 
 AsyncWebServer server(80);
 
