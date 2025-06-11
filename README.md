@@ -159,7 +159,7 @@ If you find this project useful, consider:
 
 ### 🎯 How to Fork & Use
 1. 🔱 Click the "Fork" button at the top right
-2. 📋 Clone your fork: `git clone https://github.com/YOUR_USERNAME/Project_Mina.git`
+2. 📋 Clone your fork: `git clone https://github.com/desiFish/Project_Mina.git`
 3. 🔨 Make your changes
 4. 💝 Share your improvements through Pull Requests
 
