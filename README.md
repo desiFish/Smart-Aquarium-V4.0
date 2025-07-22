@@ -6,12 +6,17 @@
 
 > In Sanskrit, "Mina" (मीन) represents the fish, symbolizing freedom, fluidity, and the eternal flow of life. As the twelfth and final sign of the zodiac (known as "Pisces" in Western astrology), Mina embodies adaptability and spiritual wisdom. Just as fish navigate the depths with graceful purpose, this project aims to create harmony between technology and aquatic life. The name embodies our philosophy of maintaining balance in the artificial ecosystems we create, guided by ancient wisdom yet powered by modern innovation.
 
+> Inspired from this project, ESP8266 versions have been developed and running successfully. These are actively being developed and are simpler versions without complex sensors. Check them out:  
+> - [Smart-Aquarium-V3.1](https://github.com/desiFish/Smart-Aquarium-V3.1)  
+> - [Smart-Aquarium-V3.1-Lite](https://github.com/desiFish/Smart-Aquarium-V3.1-Lite)
+
 [![GitHub stars](https://img.shields.io/github/stars/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/network)
 [![GitHub issues](https://img.shields.io/github/issues/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/issues)
 [![GitHub license](https://img.shields.io/github/license/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/blob/main/LICENSE)
 [![GitHub last commit](https://img.shields.io/github/last-commit/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/commits/main)
 [![Development Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/desiFish/Project_Mina)
+[![Development Status: Paused](https://img.shields.io/badge/development-paused%20%2F%20halted%20%2F%20temporarily%20stopped-red)](https://github.com/desiFish/Project_Mina)
 [![ESP32](https://img.shields.io/badge/device-ESP32-blue)](https://github.com/desiFish/Project_Mina)
 [![Web UI](https://img.shields.io/badge/interface-Web%20UI-brightgreen)](https://github.com/desiFish/Project_Mina)
 
