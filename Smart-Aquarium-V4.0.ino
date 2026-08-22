@@ -786,6 +786,8 @@ void setupServer()
             { request->send(200, "text/plain", "true"); });
   server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", SW_VERSION); });
+  server.on("/api/relay-count", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(200, "text/plain", String(NUM_RELAYS)); });
   server.on("/api/sensors", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               JsonDocument doc;

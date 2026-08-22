@@ -256,27 +256,7 @@
         <button class="btn-reset" style="margin: 0 0 0 10px;" onclick="resetAll()">Reset All</button>
     </nav>
 
-    <div class="grid-container">
-        <div class="settings-container">
-            <h3 class="settings-title">RELAY 1 Name</h3>
-            <input type="text" id="nameInput_1" class="name-input" placeholder="Loading current name...">
-            <button class="btn-set" onclick="setLEDName(1)">Set Name</button>
-        </div>
-        <div class="settings-container">
-            <h3 class="settings-title">RELAY 2 Name</h3>
-            <input type="text" id="nameInput_2" class="name-input" placeholder="Loading current name...">
-            <button class="btn-set" onclick="setLEDName(2)">Set Name</button>
-        </div>
-        <div class="settings-container">
-            <h3 class="settings-title">RELAY 3 Name</h3>
-            <input type="text" id="nameInput_3" class="name-input" placeholder="Loading current name...">
-            <button class="btn-set" onclick="setLEDName(3)">Set Name</button>
-        </div>
-        <div class="settings-container">
-            <h3 class="settings-title">RELAY 4 Name</h3>
-            <input type="text" id="nameInput_4" class="name-input" placeholder="Loading current name...">
-            <button class="btn-set" onclick="setLEDName(4)">Set Name</button>
-        </div>
+    <div id="relayNameGrid" class="grid-container">
     </div>
 
     <footer class="version-footer">
@@ -286,6 +266,39 @@
     </footer>
 
     <script>
+        let relayIds = [];
+
+        function generateRelayNameCards(relayCount) {
+            const grid = document.getElementById('relayNameGrid');
+            grid.innerHTML = '';
+            relayIds = Array.from({ length: relayCount }, (_, index) => index + 1);
+            relayIds.forEach(ledId => {
+                grid.insertAdjacentHTML('beforeend', `
+                    <div class="settings-container">
+                        <h3 class="settings-title">RELAY ${ledId} Name</h3>
+                        <input type="text" id="nameInput_${ledId}" class="name-input" placeholder="Loading current name...">
+                        <button class="btn-set" onclick="setLEDName(${ledId})">Set Name</button>
+                    </div>`);
+            });
+        }
+
+        function fetchRelayCount() {
+            return fetch(`/api/relay-count?check=${Date.now()}`, { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) throw new Error('Relay count request failed');
+                    return response.text();
+                })
+                .then(value => {
+                    const relayCount = Number(value);
+                    if (!Number.isInteger(relayCount) || relayCount < 1) throw new Error('Invalid relay count');
+                    generateRelayNameCards(relayCount);
+                })
+                .catch(error => {
+                    console.error('Error fetching relay count:', error);
+                    generateRelayNameCards(4);
+                });
+        }
+
         // Connection status check
         let connectionCheckId = 0;
         function checkConnection() {
@@ -357,7 +370,7 @@
         }
 
         function fetchLEDNames() {
-            [1, 2, 3, 4].forEach(ledId => {
+            relayIds.forEach(ledId => {
                 fetch(`/api/led${ledId}/name`)
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
@@ -432,18 +445,20 @@
         }
 
         // Initialize
-        fetchVersion();
-        fetchError();
-        setInterval(() => fetchRtcData().then(data => {
-            document.getElementById('rtcDisplay').textContent = data;
-        }), 15000);
-        setInterval(checkConnection, 3000);
-        setInterval(fetchError, 3000);
-        checkConnection();
-        fetchRtcData().then(data => {
-            document.getElementById('rtcDisplay').textContent = data;
+        fetchRelayCount().then(() => {
+            fetchVersion();
+            fetchError();
+            setInterval(() => fetchRtcData().then(data => {
+                document.getElementById('rtcDisplay').textContent = data;
+            }), 15000);
+            setInterval(checkConnection, 3000);
+            setInterval(fetchError, 3000);
+            checkConnection();
+            fetchRtcData().then(data => {
+                document.getElementById('rtcDisplay').textContent = data;
+            });
+            fetchLEDNames();
         });
-        fetchLEDNames();
     </script>
 </body>
 

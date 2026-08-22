@@ -643,10 +643,7 @@
             position: absolute;
         }
 
-        #timerControl_1,
-        #timerControl_2,
-        #timerControl_3,
-        #timerControl_4 {
+        .timer-control {
             position: relative;
             min-height: 80px;
         }
@@ -670,370 +667,7 @@
         <button class="nav-btn" onclick="window.location.href='settings.html'">Settings</button>
     </nav>
 
-    <div class="grid-container">
-        <div id="led1" class="controls-container">
-            <h3 class="led-title" id="ledName_1">LED 1</h3>
-            <div class="status-monitor">
-                <span class="status-indicator"></span>
-                <span id="liveStatus_1">Checking LED status...</span>
-            </div>
-
-            <div class="mode-selector">
-                <input type="radio" id="modeManual_1" name="mode_1" value="manual" checked>
-                <label for="modeManual_1">Manual</label>
-                <input type="radio" id="modeAuto_1" name="mode_1" value="auto">
-                <label for="modeAuto_1">Auto</label>
-                <input type="radio" id="modeTemperature_1" name="mode_1" value="temperature">
-                <label for="modeTemperature_1">Temperature</label>
-                <input type="radio" id="modeTimer_1" name="mode_1" value="timer">
-                <label for="modeTimer_1">Timer</label>
-            </div>
-
-            <div id="temperatureControl_1" class="control-panel temperature-control">
-                <div><label>Sensor:</label><select id="temperatureSensor_1">
-                        <option value="">No sensors found</option>
-                    </select></div>
-                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_1"
-                        class="time-input" step="0.1" min="-55" max="125"></div>
-                <div id="temperatureValue_1" class="temperature-value">Temperature: --</div>
-                <div class="temperature-warning">Temperature control works only when a heater is connected to this
-                    relay.</div>
-                <button id="setTemperature_1" class="btn-set">Set Temperature Control</button>
-            </div>
-
-            <div id="manualControl_1" class="control-panel active">
-                <div class="switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="ledToggle_1">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-            </div>
-
-            <div id="autoControl_1" class="control-panel">
-                <div>
-                    <label>ON Time:</label>
-                    <input type="time" id="onTime_1" class="time-input">
-                </div>
-                <div>
-                    <label>OFF Time:</label>
-                    <input type="time" id="offTime_1" class="time-input">
-                </div>
-                <button id="setTime_1" class="btn-set">Set Schedule</button>
-            </div>
-
-            <div id="timerControl_1" class="control-panel">
-                <div class="timer-controls">
-                    <label>Timer Duration:</label>
-                    <select id="timerDuration_1" onchange="updateTimerToggle(1)">
-                        <option value="0">No Timer</option>
-                        <option value="60">1 minute</option>
-                        <option value="300">5 minutes</option>
-                        <option value="600">10 minutes</option>
-                        <option value="900">15 minutes</option>
-                        <option value="1800">30 minutes</option>
-                        <option value="2700">45 minutes</option>
-                    </select>
-                </div>
-                <div id="timerSwitchContainer_1" class="timer-switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="timerToggle_1">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-                <div id="timerAnimation_1" class="timer-animation">
-                    <div id="timerCountdown_1" class="timer-countdown">00:00</div>
-                </div>
-            </div>
-
-            <div class="disable-control">
-                <div class="switch-container">
-                    <span class="switch-label">ENABLED</span>
-                    <label class="switch">
-                        <input type="checkbox" id="disableToggle_1">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">DISABLED</span>
-                </div>
-            </div>
-        </div>
-
-        <div id="led2" class="controls-container">
-            <h3 class="led-title" id="ledName_2">LED 2</h3>
-            <div class="status-monitor">
-                <span class="status-indicator"></span>
-                <span id="liveStatus_2">Checking LED status...</span>
-            </div>
-
-            <div class="mode-selector">
-                <input type="radio" id="modeManual_2" name="mode_2" value="manual" checked>
-                <label for="modeManual_2">Manual</label>
-                <input type="radio" id="modeAuto_2" name="mode_2" value="auto">
-                <label for="modeAuto_2">Auto</label>
-                <input type="radio" id="modeTemperature_2" name="mode_2" value="temperature">
-                <label for="modeTemperature_2">Temperature</label>
-                <input type="radio" id="modeTimer_2" name="mode_2" value="timer">
-                <label for="modeTimer_2">Timer</label>
-            </div>
-
-            <div id="temperatureControl_2" class="control-panel temperature-control">
-                <div><label>Sensor:</label><select id="temperatureSensor_2">
-                        <option value="">No sensors found</option>
-                    </select></div>
-                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_2"
-                        class="time-input" step="0.1" min="-55" max="125"></div>
-                <div id="temperatureValue_2" class="temperature-value">Temperature: --</div>
-                <div class="temperature-warning">Temperature control works only when a heater is connected to this
-                    relay.</div>
-                <button id="setTemperature_2" class="btn-set">Set Temperature Control</button>
-            </div>
-
-            <div id="manualControl_2" class="control-panel active">
-                <div class="switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="ledToggle_2">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-            </div>
-
-            <div id="autoControl_2" class="control-panel">
-                <div>
-                    <label>ON Time:</label>
-                    <input type="time" id="onTime_2" class="time-input">
-                </div>
-                <div>
-                    <label>OFF Time:</label>
-                    <input type="time" id="offTime_2" class="time-input">
-                </div>
-                <button id="setTime_2" class="btn-set">Set Schedule</button>
-            </div>
-
-            <div id="timerControl_2" class="control-panel">
-                <div class="timer-controls">
-                    <label>Timer Duration:</label>
-                    <select id="timerDuration_2" onchange="updateTimerToggle(2)">
-                        <option value="0">No Timer</option>
-                        <option value="60">1 minute</option>
-                        <option value="300">5 minutes</option>
-                        <option value="600">10 minutes</option>
-                        <option value="900">15 minutes</option>
-                        <option value="1800">30 minutes</option>
-                        <option value="2700">45 minutes</option>
-                    </select>
-                </div>
-                <div id="timerSwitchContainer_2" class="timer-switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="timerToggle_2">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-                <div id="timerAnimation_2" class="timer-animation">
-                    <div id="timerCountdown_2" class="timer-countdown">00:00</div>
-                </div>
-            </div>
-
-            <div class="disable-control">
-                <div class="switch-container">
-                    <span class="switch-label">ENABLED</span>
-                    <label class="switch">
-                        <input type="checkbox" id="disableToggle_2">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">DISABLED</span>
-                </div>
-            </div>
-        </div>
-
-        <div id="led3" class="controls-container">
-            <h3 class="led-title" id="ledName_3">LED 3</h3>
-            <div class="status-monitor">
-                <span class="status-indicator"></span>
-                <span id="liveStatus_3">Checking LED status...</span>
-            </div>
-
-            <div class="mode-selector">
-                <input type="radio" id="modeManual_3" name="mode_3" value="manual" checked>
-                <label for="modeManual_3">Manual</label>
-                <input type="radio" id="modeAuto_3" name="mode_3" value="auto">
-                <label for="modeAuto_3">Auto</label>
-                <input type="radio" id="modeTemperature_3" name="mode_3" value="temperature">
-                <label for="modeTemperature_3">Temperature</label>
-                <input type="radio" id="modeTimer_3" name="mode_3" value="timer">
-                <label for="modeTimer_3">Timer</label>
-            </div>
-
-            <div id="temperatureControl_3" class="control-panel temperature-control">
-                <div><label>Sensor:</label><select id="temperatureSensor_3">
-                        <option value="">No sensors found</option>
-                    </select></div>
-                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_3"
-                        class="time-input" step="0.1" min="-55" max="125"></div>
-                <div id="temperatureValue_3" class="temperature-value">Temperature: --</div>
-                <div class="temperature-warning">Temperature control works only when a heater is connected to this
-                    relay.</div>
-                <button id="setTemperature_3" class="btn-set">Set Temperature Control</button>
-            </div>
-
-            <div id="manualControl_3" class="control-panel active">
-                <div class="switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="ledToggle_3">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-            </div>
-
-            <div id="autoControl_3" class="control-panel">
-                <div>
-                    <label>ON Time:</label>
-                    <input type="time" id="onTime_3" class="time-input">
-                </div>
-                <div>
-                    <label>OFF Time:</label>
-                    <input type="time" id="offTime_3" class="time-input">
-                </div>
-                <button id="setTime_3" class="btn-set">Set Schedule</button>
-            </div>
-
-            <div id="timerControl_3" class="control-panel">
-                <div class="timer-controls">
-                    <label>Timer Duration:</label>
-                    <select id="timerDuration_3" onchange="updateTimerToggle(3)">
-                        <option value="0">No Timer</option>
-                        <option value="60">1 minute</option>
-                        <option value="300">5 minutes</option>
-                        <option value="600">10 minutes</option>
-                        <option value="900">15 minutes</option>
-                        <option value="1800">30 minutes</option>
-                        <option value="2700">45 minutes</option>
-                    </select>
-                </div>
-                <div id="timerSwitchContainer_3" class="timer-switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="timerToggle_3">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-                <div id="timerAnimation_3" class="timer-animation">
-                    <div id="timerCountdown_3" class="timer-countdown">00:00</div>
-                </div>
-            </div>
-
-            <div class="disable-control">
-                <div class="switch-container">
-                    <span class="switch-label">ENABLED</span>
-                    <label class="switch">
-                        <input type="checkbox" id="disableToggle_3">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">DISABLED</span>
-                </div>
-            </div>
-        </div>
-
-        <div id="led4" class="controls-container">
-            <h3 class="led-title" id="ledName_4">LED 4</h3>
-            <div class="status-monitor">
-                <span class="status-indicator"></span>
-                <span id="liveStatus_4">Checking LED status...</span>
-            </div>
-
-            <div class="mode-selector">
-                <input type="radio" id="modeManual_4" name="mode_4" value="manual" checked>
-                <label for="modeManual_4">Manual</label>
-                <input type="radio" id="modeAuto_4" name="mode_4" value="auto">
-                <label for="modeAuto_4">Auto</label>
-                <input type="radio" id="modeTemperature_4" name="mode_4" value="temperature">
-                <label for="modeTemperature_4">Temperature</label>
-                <input type="radio" id="modeTimer_4" name="mode_4" value="timer">
-                <label for="modeTimer_4">Timer</label>
-            </div>
-
-            <div id="temperatureControl_4" class="control-panel temperature-control">
-                <div><label>Sensor:</label><select id="temperatureSensor_4">
-                        <option value="">No sensors found</option>
-                    </select></div>
-                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_4"
-                        class="time-input" step="0.1" min="-55" max="125"></div>
-                <div id="temperatureValue_4" class="temperature-value">Temperature: --</div>
-                <div class="temperature-warning">Temperature control works only when a heater is connected to this
-                    relay.</div>
-                <button id="setTemperature_4" class="btn-set">Set Temperature Control</button>
-            </div>
-
-            <div id="manualControl_4" class="control-panel active">
-                <div class="switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="ledToggle_4">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-            </div>
-
-            <div id="autoControl_4" class="control-panel">
-                <div>
-                    <label>ON Time:</label>
-                    <input type="time" id="onTime_4" class="time-input">
-                </div>
-                <div>
-                    <label>OFF Time:</label>
-                    <input type="time" id="offTime_4" class="time-input">
-                </div>
-                <button id="setTime_4" class="btn-set">Set Schedule</button>
-            </div>
-
-            <div id="timerControl_4" class="control-panel">
-                <div class="timer-controls">
-                    <label>Timer Duration:</label>
-                    <select id="timerDuration_4" onchange="updateTimerToggle(4)">
-                        <option value="0">No Timer</option>
-                        <option value="60">1 minute</option>
-                        <option value="300">5 minutes</option>
-                        <option value="600">10 minutes</option>
-                        <option value="900">15 minutes</option>
-                        <option value="1800">30 minutes</option>
-                        <option value="2700">45 minutes</option>
-                    </select>
-                </div>
-                <div id="timerSwitchContainer_4" class="timer-switch-container">
-                    <span class="switch-label">OFF</span>
-                    <label class="switch">
-                        <input type="checkbox" id="timerToggle_4">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">ON</span>
-                </div>
-                <div id="timerAnimation_4" class="timer-animation">
-                    <div id="timerCountdown_4" class="timer-countdown">00:00</div>
-                </div>
-            </div>
-
-            <div class="disable-control">
-                <div class="switch-container">
-                    <span class="switch-label">ENABLED</span>
-                    <label class="switch">
-                        <input type="checkbox" id="disableToggle_4">
-                        <span class="slider"></span>
-                    </label>
-                    <span class="switch-label">DISABLED</span>
-                </div>
-            </div>
-        </div>
+    <div id="relayGrid" class="grid-container">
     </div>
 
     <footer class="version-footer">
@@ -1043,9 +677,77 @@
     </footer>
 
     <script>
+        let relayIds = [];
+
+        function generateRelayPanels(relayCount) {
+            const grid = document.getElementById('relayGrid');
+            grid.innerHTML = '';
+            relayIds = Array.from({ length: relayCount }, (_, index) => index + 1);
+            relayIds.forEach(ledId => {
+                grid.insertAdjacentHTML('beforeend', `
+                    <div id="led${ledId}" class="controls-container">
+                        <h3 class="led-title" id="ledName_${ledId}">LED ${ledId}</h3>
+                        <div class="status-monitor">
+                            <span class="status-indicator"></span>
+                            <span id="liveStatus_${ledId}">Checking LED status...</span>
+                        </div>
+                        <div class="mode-selector">
+                            <input type="radio" id="modeManual_${ledId}" name="mode_${ledId}" value="manual" checked>
+                            <label for="modeManual_${ledId}">Manual</label>
+                            <input type="radio" id="modeAuto_${ledId}" name="mode_${ledId}" value="auto">
+                            <label for="modeAuto_${ledId}">Auto</label>
+                            <input type="radio" id="modeTemperature_${ledId}" name="mode_${ledId}" value="temperature">
+                            <label for="modeTemperature_${ledId}">Temperature</label>
+                            <input type="radio" id="modeTimer_${ledId}" name="mode_${ledId}" value="timer">
+                            <label for="modeTimer_${ledId}">Timer</label>
+                        </div>
+                        <div id="temperatureControl_${ledId}" class="control-panel temperature-control">
+                            <div><label>Sensor:</label><select id="temperatureSensor_${ledId}"><option value="">No sensors found</option></select></div>
+                            <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_${ledId}" class="time-input" step="0.1" min="-55" max="125"></div>
+                            <div id="temperatureValue_${ledId}" class="temperature-value">Temperature: --</div>
+                            <div class="temperature-warning">Temperature control works only when a heater is connected to this relay.</div>
+                            <button id="setTemperature_${ledId}" class="btn-set">Set Temperature Control</button>
+                        </div>
+                        <div id="manualControl_${ledId}" class="control-panel active">
+                            <div class="switch-container"><span class="switch-label">OFF</span><label class="switch"><input type="checkbox" id="ledToggle_${ledId}"><span class="slider"></span></label><span class="switch-label">ON</span></div>
+                        </div>
+                        <div id="autoControl_${ledId}" class="control-panel">
+                            <div><label>ON Time:</label><input type="time" id="onTime_${ledId}" class="time-input"></div>
+                            <div><label>OFF Time:</label><input type="time" id="offTime_${ledId}" class="time-input"></div>
+                            <button id="setTime_${ledId}" class="btn-set">Set Schedule</button>
+                        </div>
+                        <div id="timerControl_${ledId}" class="control-panel timer-control">
+                            <div class="timer-controls"><label>Timer Duration:</label><select id="timerDuration_${ledId}" onchange="updateTimerToggle(${ledId})"><option value="0">No Timer</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option><option value="2700">45 minutes</option></select></div>
+                            <div id="timerSwitchContainer_${ledId}" class="timer-switch-container"><span class="switch-label">OFF</span><label class="switch"><input type="checkbox" id="timerToggle_${ledId}"><span class="slider"></span></label><span class="switch-label">ON</span></div>
+                            <div id="timerAnimation_${ledId}" class="timer-animation"><div id="timerCountdown_${ledId}" class="timer-countdown">00:00</div></div>
+                        </div>
+                        <div class="disable-control"><div class="switch-container"><span class="switch-label">ENABLED</span><label class="switch"><input type="checkbox" id="disableToggle_${ledId}"><span class="slider"></span></label><span class="switch-label">DISABLED</span></div></div>
+                    </div>`);
+                ledStates[ledId] = { enabled: false };
+                activeTimers[ledId] = null;
+            });
+        }
+
+        function fetchRelayCount() {
+            return fetch(`/api/relay-count?check=${Date.now()}`, { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) throw new Error('Relay count request failed');
+                    return response.text();
+                })
+                .then(value => {
+                    const relayCount = Number(value);
+                    if (!Number.isInteger(relayCount) || relayCount < 1) throw new Error('Invalid relay count');
+                    generateRelayPanels(relayCount);
+                })
+                .catch(error => {
+                    console.error('Error fetching relay count:', error);
+                    generateRelayPanels(4);
+                });
+        }
+
         // Add this function at the start of the script section
         function fetchLEDNames() {
-            [1, 2, 3, 4].forEach(ledId => {
+            relayIds.forEach(ledId => {
                 fetch(`/api/led${ledId}/name`)
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
@@ -1064,16 +766,11 @@
         }
 
         // LED states tracking
-        const ledStates = {
-            1: { enabled: false },  // Changed default to false
-            2: { enabled: false },
-            3: { enabled: false },
-            4: { enabled: false }
-        };
+        const ledStates = {};
 
         // function to fetch LED states
         function fetchLEDStates() {
-            [1, 2, 3, 4].forEach(ledId => {
+            relayIds.forEach(ledId => {
                 fetch(`/api/led${ledId}/system/state`)
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
@@ -1122,7 +819,7 @@
 
         // Add this function before setupLED
         function syncModesFromServer() {
-            [1, 2, 3, 4].forEach(ledId => {
+            relayIds.forEach(ledId => {
                 if (!ledStates[ledId].enabled) return;
 
                 fetch(`/api/led${ledId}/mode`)
@@ -1163,7 +860,7 @@
 
         // Add this function after fetchLEDStates
         function initModesFromServer() {
-            [1, 2, 3, 4].forEach(ledId => {
+            relayIds.forEach(ledId => {
                 fetch(`/api/led${ledId}/mode`)
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
@@ -1195,7 +892,7 @@
 
         // Add this function after syncModesFromServer
         function fetchScheduleTimes() {
-            [1, 2, 3, 4].forEach(ledId => {
+            relayIds.forEach(ledId => {
                 fetch(`/api/led${ledId}/schedule`)
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
@@ -1223,12 +920,7 @@
         }
 
         // active timer tracking
-        const activeTimers = {
-            1: null,
-            2: null,
-            3: null,
-            4: null
-        };
+        const activeTimers = {};
 
         function showTimerAnimation(ledId) {
             const elements = {
@@ -1334,7 +1026,7 @@
         }
 
         function checkAllTimerStates() {
-            [1, 2, 3, 4].forEach(ledId => {
+            relayIds.forEach(ledId => {
                 fetch(`/api/led${ledId}/mode`)
                     .then(response => response.text())
                     .then(mode => {
@@ -1352,7 +1044,7 @@
                 .then(response => response.json())
                 .then(result => {
                     availableSensors = result.sensors || [];
-                    [1, 2, 3, 4].forEach(ledId => {
+                    relayIds.forEach(ledId => {
                         const select = document.querySelector(`#temperatureSensor_${ledId}`);
                         select.innerHTML = '';
                         const placeholder = document.createElement('option');
@@ -1754,15 +1446,15 @@
 
         // Replace existing initialization code at the bottom with:
         function initializeApp() {
-            Promise.all([
+            fetchRelayCount().then(() => Promise.all([
                 fetchLEDStates(),
                 fetchLEDNames(),
                 fetchScheduleTimes(),
                 fetchTemperatureSensors()
-            ]).then(() => {
+            ])).then(() => {
                 // After states are loaded, initialize modes and timers
                 initModesFromServer();
-                [1, 2, 3, 4].forEach(ledId => {
+                relayIds.forEach(ledId => {
                     setupLED(ledId);
                     checkTimerState(ledId); // Check timer state for each LED
                 });
