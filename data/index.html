@@ -536,7 +536,8 @@
 
         .temperature-control>div:not(.temperature-warning) {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(120px, 150px);
+            grid-template-columns: minmax(120px, max-content) minmax(120px, 150px);
+            justify-content: center;
             align-items: center;
             gap: 14px;
             margin-bottom: 14px;
@@ -544,7 +545,7 @@
 
         .temperature-control label {
             color: #bdbdbd;
-            text-align: right;
+            text-align: center;
         }
 
         .temperature-control select,

@@ -293,6 +293,7 @@
     <nav class="navbar">
         <button class="nav-btn" onclick="window.location.href='index.html'">Back</button>
         <button class="nav-btn" style="margin-left: 10px;" onclick="updateTime()">Update Time</button>
+        <button class="nav-btn" style="margin-left: 10px;" onclick="rebootDevice()">Reboot</button>
         <button class="btn-reset" style="margin: 0 0 0 10px;" onclick="resetAll()">Reset All</button>
     </nav>
 
@@ -593,6 +594,20 @@
                 .catch(error => {
                     console.error('Error resetting device:', error);
                     alert('Failed to reset device');
+                });
+        }
+
+        function rebootDevice() {
+            if (!confirm('Reboot the device now?')) return;
+            fetch('/api/reboot', { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) throw new Error('Reboot request failed');
+                    return response.json();
+                })
+                .then(result => alert(result.info || 'Device will reboot in 3 seconds.'))
+                .catch(error => {
+                    console.error('Error rebooting device:', error);
+                    alert('Failed to reboot device');
                 });
         }
 

@@ -148,6 +148,11 @@ bool autoTimeUpdate()
                        timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec);
   rtc.adjust(updatedTime);
 
+  DateTime now = rtc.now();
+  preferences.begin("time", false);
+  preferences.putUChar("lastUpdateDay", now.day());
+  preferences.end();
+
   char message[80];
   snprintf(message, sizeof(message), "RTC updated: %04d-%02d-%02d %02d:%02d:%02d",
            updatedTime.year(), updatedTime.month(), updatedTime.day(),
@@ -931,6 +936,12 @@ void setupServer()
               restartRequested = true;
               restartAt = millis() + 5000;
               request->send(200, "application/json", "{\"success\":true,\"info\":\"Reset complete. Device will reboot in 5 seconds.\"}"); });
+  server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
+              Serial.println("[API] /api/reboot requested");
+              request->send(200, "application/json", "{\"success\":true,\"info\":\"Device will reboot in 3 seconds.\"}");
+              restartRequested = true;
+              restartAt = millis() + 3000; });
   server.on("/api/error", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               JsonDocument doc;
@@ -1019,47 +1030,74 @@ void setup(void)
       "loop2Code", // name of task.
       10000,       // Stack size of task
       NULL,        // parameter of the task
-      1,           // priority of the task
+      2,           // priority of the task
       &loop2Code,  // Task handle to keep track of created task
       0);          // pin task to core 0
   Serial.println("Setup complete");
 }
+
 void loop2(void *pvParameters)
 {
+  unsigned long lastScheduleCheck = 0;
+
   for (;;)
   {
+    // Keep timer and toggle modes responsive, independent of schedule polling.
+    for (uint8_t i = 0; i < NUM_RELAYS; i++)
+      relays[i]->update();
+
+    // Check auto relay states and the RTC at most once every two seconds.
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastScheduleCheck >= 2000)
+    {
+      lastScheduleCheck = currentMillis;
+      if (sensorCount > 0)
+      {
+        sensors.requestTemperatures();
+        for (uint8_t i = 0; i < sensorCount; i++)
+          sensorTemperatures[i] = sensors.getTempC(sensorAddresses[i]);
+      }
+      for (uint8_t i = 0; i < NUM_RELAYS; i++)
+      {
+        if (relays[i]->getMode() == "auto" && relays[i]->isEnabled())
+        {
+          bool scheduled = relays[i]->shouldBeOnNow();
+          if (scheduled != relays[i]->getState())
+            relays[i]->setScheduledState(scheduled);
+        }
+        relays[i]->updateTemperature();
+      }
+    }
+
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
+
 void loop(void)
 {
   ElegantOTA.loop();
 
-  // Keep timer and toggle modes responsive, independent of schedule polling.
-  for (uint8_t i = 0; i < NUM_RELAYS; i++)
-    relays[i]->update();
-
-  // Check auto relay states and the RTC at most once every two seconds.
-  static unsigned long lastScheduleCheck = 0;
+  static unsigned long lastTimeCheck = 0;
   unsigned long currentMillis = millis();
-  if (currentMillis - lastScheduleCheck >= 2000)
+  if (currentMillis - lastTimeCheck >= 3600000UL)
   {
-    lastScheduleCheck = currentMillis;
-    if (sensorCount > 0)
+    lastTimeCheck = currentMillis;
+    if (rtcReady)
     {
-      sensors.requestTemperatures();
-      for (uint8_t i = 0; i < sensorCount; i++)
-        sensorTemperatures[i] = sensors.getTempC(sensorAddresses[i]);
-    }
-    for (uint8_t i = 0; i < NUM_RELAYS; i++)
-    {
-      if (relays[i]->getMode() == "auto" && relays[i]->isEnabled())
+      DateTime now = rtc.now();
+      preferences.begin("time", false);
+      uint8_t lastUpdateDay = preferences.getUChar("lastUpdateDay", 0);
+      preferences.end();
+      uint8_t daysSinceUpdate = lastUpdateDay == 0 ? 15 : (now.day() - lastUpdateDay + 31) % 31;
+      if (daysSinceUpdate >= 15)
       {
-        bool scheduled = relays[i]->shouldBeOnNow();
-        if (scheduled != relays[i]->getState())
-          relays[i]->setScheduledState(scheduled);
+        Serial.printf("[RTC] Automatic update due: %u days since last update\n", daysSinceUpdate);
+        autoTimeUpdate();
       }
-      relays[i]->updateTemperature();
+    }
+    else
+    {
+      Serial.println("[RTC] Skipping automatic update: RTC not ready");
     }
   }
 
