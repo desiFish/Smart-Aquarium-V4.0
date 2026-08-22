@@ -40,6 +40,7 @@ WiFiUDP ntpUDP;
 String ntpPoolServer = "pool.ntp.org";
 String customNtpServer;
 long timeZoneOffset = 0;
+String timezoneName = "UTC";
 NTPClient timeClient(ntpUDP, ntpPoolServer.c_str(), timeZoneOffset);
 bool restartRequested = false;
 unsigned long restartAt = 0;
@@ -53,7 +54,6 @@ DallasTemperature sensors(&oneWire);
 DeviceAddress sensorAddresses[8];
 uint8_t sensorCount = 0;
 float sensorTemperatures[8] = {NAN};
-unsigned long lastTemperatureRequest = 0;
 
 void addErrorMessage(const String &message)
 {
@@ -62,6 +62,37 @@ void addErrorMessage(const String &message)
   if (!errorBuffer.isEmpty())
     errorBuffer += "\n";
   errorBuffer += message;
+}
+
+void loadTimeSettings()
+{
+  preferences.begin("time", false);
+  timezoneName = preferences.getString("timezone", "UTC");
+  ntpPoolServer = preferences.getString("ntpServer", "pool.ntp.org");
+  customNtpServer = preferences.getString("customServer", "");
+  long savedOffset = preferences.getLong("offset", 0);
+  preferences.end();
+  timeZoneOffset = savedOffset;
+  Serial.printf("[Time] Loaded timezone=%s, offset=%ld, NTP=%s%s%s%s\n",
+                timezoneName.c_str(), timeZoneOffset, ntpPoolServer.c_str(),
+                ntpPoolServer == "custom" ? " (" : "",
+                ntpPoolServer == "custom" ? customNtpServer.c_str() : "",
+                ntpPoolServer == "custom" ? ")" : "");
+}
+
+void saveTimeSettings()
+{
+  preferences.begin("time", false);
+  preferences.putString("timezone", timezoneName);
+  preferences.putString("ntpServer", ntpPoolServer);
+  preferences.putString("customServer", customNtpServer);
+  preferences.putLong("offset", timeZoneOffset);
+  preferences.end();
+  Serial.printf("[Time] Saved timezone=%s, offset=%ld, NTP=%s%s%s%s\n",
+                timezoneName.c_str(), timeZoneOffset, ntpPoolServer.c_str(),
+                ntpPoolServer == "custom" ? " (" : "",
+                ntpPoolServer == "custom" ? customNtpServer.c_str() : "",
+                ntpPoolServer == "custom" ? ")" : "");
 }
 
 bool enableWiFi()
@@ -151,7 +182,7 @@ class Relay
 private:
   uint8_t pin;
   uint8_t number;
-  bool enabled = true;
+  bool enabled = false;
   bool state = false;
   String name;
   String mode = "manual";
@@ -796,6 +827,55 @@ void setupServer()
             { request->send(200, "text/plain", "true"); });
   server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", SW_VERSION); });
+  server.on("/api/time-settings", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+              JsonDocument doc;
+              JsonArray servers = doc["ntpServers"].to<JsonArray>();
+              servers.add("pool.ntp.org");
+              servers.add("in.pool.ntp.org");
+              servers.add("custom");
+              doc["timezone"] = timezoneName;
+              doc["offset"] = timeZoneOffset;
+              doc["ntpServer"] = ntpPoolServer;
+              doc["customServer"] = customNtpServer;
+              String response = jsonResponse(doc);
+              request->send(200, "application/json", response); });
+  server.on("/api/time-settings", HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr, [](AsyncWebServerRequest *request, uint8_t *data, size_t length, size_t, size_t)
+            {
+              JsonDocument input;
+                if (deserializeJson(input, data, length) || !input["timezone"].is<const char *>() ||
+                  !input["ntpServer"].is<const char *>() || !input["offset"].is<long>())
+              {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid time settings\"}");
+                return;
+              }
+              String selectedTimezone = input["timezone"].as<String>();
+              String selectedServer = input["ntpServer"].as<String>();
+              String selectedCustomServer = input["customServer"] | "";
+              long selectedOffset = input["offset"].as<long>();
+              selectedCustomServer.trim();
+              String serverName = selectedServer == "custom" ? selectedCustomServer : selectedServer;
+              if (selectedOffset < -50400L || selectedOffset > 50400L || serverName.isEmpty())
+              {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid timezone or NTP server\"}");
+                return;
+              }
+              timezoneName = selectedTimezone;
+              timeZoneOffset = selectedOffset;
+              ntpPoolServer = selectedServer;
+              customNtpServer = selectedCustomServer;
+              timeClient.setPoolServerName(serverName.c_str());
+              timeClient.setTimeOffset(timeZoneOffset);
+              saveTimeSettings();
+              bool updated = autoTimeUpdate();
+              JsonDocument response;
+              response["success"] = true;
+              response["rtcUpdated"] = updated;
+              response["timezone"] = timezoneName;
+              response["offset"] = timeZoneOffset;
+              response["message"] = updated ? "Time settings saved and RTC updated." : "Time settings saved, but RTC update failed.";
+              String responseText = jsonResponse(response);
+              request->send(200, "application/json", responseText); });
   server.on("/api/relay-count", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", String(NUM_RELAYS)); });
   server.on("/api/sensors", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -885,6 +965,8 @@ void setup(void)
     Serial.println("RTC not found");
     addErrorMessage("RTC not found. Time functions will be unavailable.");
   }
+
+  loadTimeSettings();
 
   Serial.printf("[DS18B20] Searching on GPIO %u\n", ONE_WIRE_BUS);
   sensors.begin();

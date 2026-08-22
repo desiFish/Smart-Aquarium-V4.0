@@ -129,6 +129,46 @@
             min-height: 1.2em;
         }
 
+        .time-settings-container {
+            width: 100%;
+            max-width: 900px;
+            box-sizing: border-box;
+            background: #1e1e1e;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .time-settings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .time-setting label {
+            display: block;
+            color: #bdbdbd;
+            margin-bottom: 6px;
+        }
+
+        .time-setting input,
+        .time-setting select {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .time-offset {
+            color: #4CAF50;
+            text-align: center;
+            margin-top: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .time-settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .nav-btn {
             background: #252525;
             color: #2196F3;
@@ -241,20 +281,37 @@
     <div class="page-header">
         <div class="header">
             <h2 class="page-title">Settings</h2>
-            <div id="connectionStatus" class="connection-status offline">
+            <div id="connectionStatus" class="connection-status offline" role="status" aria-live="polite">
                 <span class="connection-dot"></span>
                 <span>Offline</span>
             </div>
         </div>
     </div>
 
-    <div id="rtcDisplay" class="rtc-display">RTC Error</div>
+    <div id="rtcDisplay" class="rtc-display" role="status" aria-live="polite">RTC Error</div>
 
     <nav class="navbar">
         <button class="nav-btn" onclick="window.location.href='index.html'">Back</button>
         <button class="nav-btn" style="margin-left: 10px;" onclick="updateTime()">Update Time</button>
         <button class="btn-reset" style="margin: 0 0 0 10px;" onclick="resetAll()">Reset All</button>
     </nav>
+
+    <section class="time-settings-container">
+        <h3 class="settings-title">TIME AND NTP SETTINGS</h3>
+        <div class="time-settings-grid">
+            <div class="time-setting">
+                <label for="timezoneInput">Timezone</label>
+                <input id="timezoneInput" type="text" placeholder="UTC+05:30" autocomplete="off">
+            </div>
+            <div class="time-setting">
+                <label for="ntpServerSelect">NTP pool server</label>
+                <select id="ntpServerSelect"></select>
+                <input id="customNtpServer" class="name-input" type="text" placeholder="Custom NTP server" hidden>
+            </div>
+        </div>
+        <div id="timeOffset" class="time-offset">Offset: --</div>
+        <button id="saveTimeSettings" class="btn-set">Save Time Settings</button>
+    </section>
 
     <div id="relayNameGrid" class="grid-container">
     </div>
@@ -267,6 +324,7 @@
 
     <script>
         let relayIds = [];
+        let timeSettingsDirty = false;
 
         function generateRelayNameCards(relayCount) {
             const grid = document.getElementById('relayNameGrid');
@@ -276,6 +334,7 @@
                 grid.insertAdjacentHTML('beforeend', `
                     <div class="settings-container">
                         <h3 class="settings-title">RELAY ${ledId} Name</h3>
+                        <label for="nameInput_${ledId}">Relay ${ledId} name</label>
                         <input type="text" id="nameInput_${ledId}" class="name-input" placeholder="Loading current name...">
                         <button class="btn-set" onclick="setLEDName(${ledId})">Set Name</button>
                     </div>`);
@@ -291,12 +350,93 @@
                 .then(value => {
                     const relayCount = Number(value);
                     if (!Number.isInteger(relayCount) || relayCount < 1) throw new Error('Invalid relay count');
-                    generateRelayNameCards(relayCount);
+                    if (relayIds.length !== relayCount)
+                        generateRelayNameCards(relayCount);
                 })
                 .catch(error => {
                     console.error('Error fetching relay count:', error);
-                    generateRelayNameCards(4);
+                    if (relayIds.length !== 4)
+                        generateRelayNameCards(4);
                 });
+        }
+
+        function updateCustomNtpVisibility() {
+            document.getElementById('customNtpServer').hidden = document.getElementById('ntpServerSelect').value !== 'custom';
+        }
+
+        function formatOffset(offset) {
+            const sign = offset < 0 ? '-' : '+';
+            const absolute = Math.abs(offset);
+            return `UTC${sign}${String(Math.floor(absolute / 3600)).padStart(2, '0')}:${String((absolute % 3600) / 60).padStart(2, '0')}`;
+        }
+
+        function calculateTimezoneOffset(timezone) {
+            const value = timezone.trim().toUpperCase();
+            if (value === 'UTC' || value === 'GMT') return 0;
+            const match = value.match(/^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$/);
+            if (!match) return 0;
+            const hours = Number(match[2]);
+            const minutes = Number(match[3] || 0);
+            if (hours > 14 || minutes > 59 || (hours === 14 && minutes > 0)) return 0;
+            return (match[1] === '-' ? -1 : 1) * (hours * 3600 + minutes * 60);
+        }
+
+        function isValidTimezone(timezone) {
+            const value = timezone.trim().toUpperCase();
+            if (value === 'UTC' || value === 'GMT') return true;
+            const match = value.match(/^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$/);
+            if (!match) return false;
+            const hours = Number(match[2]);
+            const minutes = Number(match[3] || 0);
+            return hours <= 14 && minutes <= 59 && !(hours === 14 && minutes > 0);
+        }
+
+        function fetchTimeSettings() {
+            return fetch(`/api/time-settings?check=${Date.now()}`, { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) throw new Error('Time settings request failed');
+                    return response.json();
+                })
+                .then(settings => {
+                    if (timeSettingsDirty) return settings;
+                    document.getElementById('timezoneInput').value = settings.timezone || 'UTC';
+                    document.getElementById('timeOffset').textContent = `Offset: ${formatOffset(settings.offset || 0)}`;
+                    const select = document.getElementById('ntpServerSelect');
+                    select.innerHTML = '';
+                    (settings.ntpServers || []).forEach(server => {
+                        const option = document.createElement('option');
+                        option.value = server;
+                        option.textContent = server === 'custom' ? 'Custom server' : server;
+                        select.appendChild(option);
+                    });
+                    select.value = settings.ntpServer || 'pool.ntp.org';
+                    document.getElementById('customNtpServer').value = settings.customServer || '';
+                    updateCustomNtpVisibility();
+                });
+        }
+
+        function saveTimeSettings() {
+            const timezone = document.getElementById('timezoneInput').value.trim();
+            const ntpServer = document.getElementById('ntpServerSelect').value;
+            const customServer = document.getElementById('customNtpServer').value.trim();
+            const offset = calculateTimezoneOffset(timezone);
+            if (!isValidTimezone(timezone) || (ntpServer === 'custom' && !customServer)) {
+                alert('Enter a valid timezone such as UTC+05:30 and a valid NTP server');
+                return;
+            }
+            fetch('/api/time-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ timezone, offset, ntpServer, customServer })
+            })
+                .then(response => response.json().then(result => ({ ok: response.ok, result })))
+                .then(({ ok, result }) => {
+                    if (!ok) throw new Error(result.error || 'Time settings update failed');
+                    document.getElementById('timeOffset').textContent = `Offset: ${formatOffset(result.offset)}`;
+                    timeSettingsDirty = false;
+                    alert(result.message);
+                })
+                .catch(error => alert(error.message));
         }
 
         // Connection status check
@@ -429,6 +569,18 @@
                 });
         }
 
+        document.getElementById('ntpServerSelect').addEventListener('change', () => {
+            timeSettingsDirty = true;
+            updateCustomNtpVisibility();
+        });
+        document.getElementById('timezoneInput').addEventListener('input', () => {
+            timeSettingsDirty = true;
+        });
+        document.getElementById('customNtpServer').addEventListener('input', () => {
+            timeSettingsDirty = true;
+        });
+        document.getElementById('saveTimeSettings').addEventListener('click', saveTimeSettings);
+
         function resetAll() {
             if (!confirm('Reset all relay values and WiFi settings to defaults?')) return;
 
@@ -446,6 +598,7 @@
 
         // Initialize
         fetchRelayCount().then(() => {
+            fetchTimeSettings();
             fetchVersion();
             fetchError();
             setInterval(() => fetchRtcData().then(data => {
@@ -459,6 +612,13 @@
             });
             fetchLEDNames();
         });
+
+        setInterval(() => {
+            fetchRelayCount();
+            fetchTimeSettings();
+            fetchVersion();
+            fetchLEDNames();
+        }, 10000);
     </script>
 </body>
 

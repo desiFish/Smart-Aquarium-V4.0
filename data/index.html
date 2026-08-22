@@ -1341,26 +1341,42 @@
 
         // Update LED status
         function updateLEDStatus(ledId) {
-            // Don't update if LED is disabled
-            if (!ledStates[ledId].enabled) return;
-
             const indicator = document.querySelector(`#led${ledId} .status-indicator`);
             const statusText = document.querySelector(`#liveStatus_${ledId}`);
             const toggle = document.querySelector(`#ledToggle_${ledId}`);
+            const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
+            const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
 
-            fetch(`/api/led${ledId}/status`)
+            fetch(`/api/led${ledId}/system/state?check=${Date.now()}`, { cache: 'no-store' })
                 .then(response => {
                     if (!response.ok) throw new Error('Network response was not ok');
-                    return response.text();
+                    return response.json();
+                })
+                .then(systemState => {
+                    ledStates[ledId].enabled = systemState.enabled;
+                    disableToggle.checked = !systemState.enabled;
+                    controls.forEach(panel => {
+                        panel.style.opacity = systemState.enabled ? '1' : '0.5';
+                        panel.style.pointerEvents = systemState.enabled ? 'auto' : 'none';
+                    });
+
+                    if (!systemState.enabled) {
+                        indicator.className = 'status-indicator off';
+                        statusText.textContent = 'Status: Disabled';
+                        return null;
+                    }
+                    return fetch(`/api/led${ledId}/status?check=${Date.now()}`, { cache: 'no-store' })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok');
+                            return response.text();
+                        });
                 })
                 .then(state => {
-                    if (state === 'ON' || state === 'OFF') {
-                        indicator.className = `status-indicator ${state.toLowerCase()}`;
-                        statusText.textContent = `Status: ${state}`;
-                        toggle.checked = (state === 'ON');  // Update toggle state
-                    } else {
-                        throw new Error('Invalid state received');
-                    }
+                    if (state === null) return;
+                    if (state !== 'ON' && state !== 'OFF') throw new Error('Invalid state received');
+                    indicator.className = `status-indicator ${state.toLowerCase()}`;
+                    statusText.textContent = `Status: ${state}`;
+                    toggle.checked = (state === 'ON');
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -1369,7 +1385,7 @@
                     toggle.checked = false;  // Default to OFF on error
                 });
 
-            fetch(`/api/led${ledId}/temperature`)
+            fetch(`/api/led${ledId}/temperature?check=${Date.now()}`, { cache: 'no-store' })
                 .then(response => response.json())
                 .then(settings => {
                     const temperature = typeof settings.temperature === 'number' ? settings.temperature : NaN;
