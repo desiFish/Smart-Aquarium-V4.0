@@ -528,6 +528,59 @@
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
         }
 
+        .temperature-control {
+            padding: 1.2rem;
+            background: #252525;
+            border-radius: 8px;
+        }
+
+        .temperature-control>div:not(.temperature-warning) {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(120px, 150px);
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .temperature-control label {
+            color: #bdbdbd;
+            text-align: right;
+        }
+
+        .temperature-control select,
+        .temperature-control input {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+
+        .temperature-value {
+            display: block !important;
+            color: #4CAF50;
+            text-align: center;
+            margin: 18px 0 !important;
+        }
+
+        .temperature-warning {
+            display: block !important;
+            color: #ff5252;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            text-align: center;
+            margin: 4px 0 16px !important;
+        }
+
+        @media (max-width: 420px) {
+            .temperature-control>div:not(.temperature-warning) {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+
+            .temperature-control label {
+                text-align: left;
+            }
+        }
+
         .rtc-display {
             color: #4CAF50;
             font-size: 1rem;
@@ -630,8 +683,22 @@
                 <label for="modeManual_1">Manual</label>
                 <input type="radio" id="modeAuto_1" name="mode_1" value="auto">
                 <label for="modeAuto_1">Auto</label>
+                <input type="radio" id="modeTemperature_1" name="mode_1" value="temperature">
+                <label for="modeTemperature_1">Temperature</label>
                 <input type="radio" id="modeTimer_1" name="mode_1" value="timer">
                 <label for="modeTimer_1">Timer</label>
+            </div>
+
+            <div id="temperatureControl_1" class="control-panel temperature-control">
+                <div><label>Sensor:</label><select id="temperatureSensor_1">
+                        <option value="">No sensors found</option>
+                    </select></div>
+                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_1"
+                        class="time-input" step="0.1" min="-55" max="125"></div>
+                <div id="temperatureValue_1" class="temperature-value">Temperature: --</div>
+                <div class="temperature-warning">Temperature control works only when a heater is connected to this
+                    relay.</div>
+                <button id="setTemperature_1" class="btn-set">Set Temperature Control</button>
             </div>
 
             <div id="manualControl_1" class="control-panel active">
@@ -707,8 +774,22 @@
                 <label for="modeManual_2">Manual</label>
                 <input type="radio" id="modeAuto_2" name="mode_2" value="auto">
                 <label for="modeAuto_2">Auto</label>
+                <input type="radio" id="modeTemperature_2" name="mode_2" value="temperature">
+                <label for="modeTemperature_2">Temperature</label>
                 <input type="radio" id="modeTimer_2" name="mode_2" value="timer">
                 <label for="modeTimer_2">Timer</label>
+            </div>
+
+            <div id="temperatureControl_2" class="control-panel temperature-control">
+                <div><label>Sensor:</label><select id="temperatureSensor_2">
+                        <option value="">No sensors found</option>
+                    </select></div>
+                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_2"
+                        class="time-input" step="0.1" min="-55" max="125"></div>
+                <div id="temperatureValue_2" class="temperature-value">Temperature: --</div>
+                <div class="temperature-warning">Temperature control works only when a heater is connected to this
+                    relay.</div>
+                <button id="setTemperature_2" class="btn-set">Set Temperature Control</button>
             </div>
 
             <div id="manualControl_2" class="control-panel active">
@@ -784,8 +865,22 @@
                 <label for="modeManual_3">Manual</label>
                 <input type="radio" id="modeAuto_3" name="mode_3" value="auto">
                 <label for="modeAuto_3">Auto</label>
+                <input type="radio" id="modeTemperature_3" name="mode_3" value="temperature">
+                <label for="modeTemperature_3">Temperature</label>
                 <input type="radio" id="modeTimer_3" name="mode_3" value="timer">
                 <label for="modeTimer_3">Timer</label>
+            </div>
+
+            <div id="temperatureControl_3" class="control-panel temperature-control">
+                <div><label>Sensor:</label><select id="temperatureSensor_3">
+                        <option value="">No sensors found</option>
+                    </select></div>
+                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_3"
+                        class="time-input" step="0.1" min="-55" max="125"></div>
+                <div id="temperatureValue_3" class="temperature-value">Temperature: --</div>
+                <div class="temperature-warning">Temperature control works only when a heater is connected to this
+                    relay.</div>
+                <button id="setTemperature_3" class="btn-set">Set Temperature Control</button>
             </div>
 
             <div id="manualControl_3" class="control-panel active">
@@ -861,8 +956,22 @@
                 <label for="modeManual_4">Manual</label>
                 <input type="radio" id="modeAuto_4" name="mode_4" value="auto">
                 <label for="modeAuto_4">Auto</label>
+                <input type="radio" id="modeTemperature_4" name="mode_4" value="temperature">
+                <label for="modeTemperature_4">Temperature</label>
                 <input type="radio" id="modeTimer_4" name="mode_4" value="timer">
                 <label for="modeTimer_4">Timer</label>
+            </div>
+
+            <div id="temperatureControl_4" class="control-panel temperature-control">
+                <div><label>Sensor:</label><select id="temperatureSensor_4">
+                        <option value="">No sensors found</option>
+                    </select></div>
+                <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_4"
+                        class="time-input" step="0.1" min="-55" max="125"></div>
+                <div id="temperatureValue_4" class="temperature-value">Temperature: --</div>
+                <div class="temperature-warning">Temperature control works only when a heater is connected to this
+                    relay.</div>
+                <button id="setTemperature_4" class="btn-set">Set Temperature Control</button>
             </div>
 
             <div id="manualControl_4" class="control-panel active">
@@ -1023,7 +1132,7 @@
                     })
                     .then(mode => {
                         // Validate mode
-                        const validModes = ['manual', 'auto', 'timer'];
+                        const validModes = ['manual', 'auto', 'timer', 'temperature'];
                         mode = mode.toLowerCase().trim();
 
                         if (!validModes.includes(mode)) return;
@@ -1033,7 +1142,8 @@
                         const panels = {
                             manual: document.querySelector(`#manualControl_${ledId}`),
                             auto: document.querySelector(`#autoControl_${ledId}`),
-                            timer: document.querySelector(`#timerControl_${ledId}`)
+                            timer: document.querySelector(`#timerControl_${ledId}`),
+                            temperature: document.querySelector(`#temperatureControl_${ledId}`)
                         };
 
                         if (modeRadio) {
@@ -1061,7 +1171,7 @@
                     })
                     .then(mode => {
                         mode = mode.toLowerCase().trim();
-                        if (!['manual', 'auto', 'timer'].includes(mode)) return;
+                        if (!['manual', 'auto', 'timer', 'temperature'].includes(mode)) return;
 
                         // Select the correct radio button
                         const modeSelector = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
@@ -1236,6 +1346,36 @@
             });
         }
 
+        let availableSensors = [];
+        function fetchTemperatureSensors() {
+            return fetch('/api/sensors')
+                .then(response => response.json())
+                .then(result => {
+                    availableSensors = result.sensors || [];
+                    [1, 2, 3, 4].forEach(ledId => {
+                        const select = document.querySelector(`#temperatureSensor_${ledId}`);
+                        select.innerHTML = '';
+                        const placeholder = document.createElement('option');
+                        placeholder.value = '';
+                        placeholder.textContent = availableSensors.length ? 'Select a sensor' : 'No sensors found';
+                        placeholder.selected = true;
+                        placeholder.disabled = availableSensors.length > 0;
+                        select.appendChild(placeholder);
+                        availableSensors.forEach(sensor => {
+                            const option = document.createElement('option');
+                            option.value = sensor.address;
+                            const temperature = typeof sensor.temperature === 'number' ? sensor.temperature : NaN;
+                            const reading = Number.isFinite(temperature) ? `${temperature.toFixed(1)}°C` : 'Read error';
+                            option.textContent = `Sensor ${sensor.address.slice(-4)} (${reading})`;
+                            select.appendChild(option);
+                        });
+                    });
+                })
+                .catch(() => {
+                    availableSensors = [];
+                });
+        }
+
         // Function to initialize LED controls
         function setupLED(ledId) {
             const led = {
@@ -1247,12 +1387,52 @@
                 panels: {
                     manual: document.querySelector(`#manualControl_${ledId}`),
                     auto: document.querySelector(`#autoControl_${ledId}`),
-                    timer: document.querySelector(`#timerControl_${ledId}`)
+                    timer: document.querySelector(`#timerControl_${ledId}`),
+                    temperature: document.querySelector(`#temperatureControl_${ledId}`)
                 },
                 disableToggle: document.querySelector(`#disableToggle_${ledId}`),
                 allControls: document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`),
                 timerDuration: document.querySelector(`#timerDuration_${ledId}`),
-                timerSwitch: document.querySelector(`#timerSwitchContainer_${ledId}`)
+                timerSwitch: document.querySelector(`#timerSwitchContainer_${ledId}`),
+                temperatureSensor: document.querySelector(`#temperatureSensor_${ledId}`),
+                temperatureTarget: document.querySelector(`#temperatureTarget_${ledId}`),
+                temperatureValue: document.querySelector(`#temperatureValue_${ledId}`)
+            };
+
+            fetch(`/api/led${ledId}/temperature`)
+                .then(response => response.json())
+                .then(settings => {
+                    led.temperatureSensor.value = settings.sensor || '';
+                    led.temperatureTarget.value = settings.targetTemperature;
+                })
+                .catch(error => console.error(`Error loading temperature settings for relay ${ledId}:`, error));
+
+            document.querySelector(`#setTemperature_${ledId}`).onclick = () => {
+                const sensor = led.temperatureSensor.value;
+                const targetTemperature = parseFloat(led.temperatureTarget.value);
+                if (!sensor || Number.isNaN(targetTemperature)) {
+                    alert('Select a sensor and enter a maintain temperature');
+                    return;
+                }
+                fetch(`/api/led${ledId}/temperature`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sensor, targetTemperature })
+                })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Temperature settings failed');
+                        return response.json();
+                    })
+                    .then(() => {
+                        led.modes.forEach(mode => mode.checked = mode.value === 'temperature');
+                        Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
+                        led.panels.temperature.classList.add('active');
+                        alert('Temperature control saved');
+                    })
+                    .catch(error => {
+                        console.error(error);
+                        alert('Failed to save temperature control');
+                    });
             };
 
             // Mode selection only updates UI panels
@@ -1491,6 +1671,15 @@
                     statusText.textContent = 'Status: Error';
                     toggle.checked = false;  // Default to OFF on error
                 });
+
+            fetch(`/api/led${ledId}/temperature`)
+                .then(response => response.json())
+                .then(settings => {
+                    const temperature = typeof settings.temperature === 'number' ? settings.temperature : NaN;
+                    if (Number.isFinite(temperature))
+                        document.querySelector(`#temperatureValue_${ledId}`).textContent = `Temperature: ${temperature.toFixed(1)}°C`;
+                })
+                .catch(() => { });
         }
 
         // Connection status check
@@ -1568,7 +1757,8 @@
             Promise.all([
                 fetchLEDStates(),
                 fetchLEDNames(),
-                fetchScheduleTimes()
+                fetchScheduleTimes(),
+                fetchTemperatureSensors()
             ]).then(() => {
                 // After states are loaded, initialize modes and timers
                 initModesFromServer();

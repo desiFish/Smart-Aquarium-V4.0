@@ -6,6 +6,9 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
 // For Display and I2C
 #include <SPI.h>
 #include <Wire.h>
@@ -25,6 +28,8 @@
 #include <Adafruit_NeoPixel.h>
 
 #define NUM_RELAYS 4
+#define ONE_WIRE_BUS 4
+#define TEMPERATURE_HYSTERESIS 0.5f
 const uint8_t RELAY_PINS[NUM_RELAYS] = {26, 27, 14, 12};
 #define SW_VERSION "v0.3.0-beta"
 
@@ -43,6 +48,12 @@ bool rtcReady = false;
 bool otaActive = false;
 unsigned long otaProgressMillis = 0;
 String errorBuffer;
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+DeviceAddress sensorAddresses[8];
+uint8_t sensorCount = 0;
+float sensorTemperatures[8] = {NAN};
+unsigned long lastTemperatureRequest = 0;
 
 bool enableWiFi()
 {
@@ -144,8 +155,25 @@ private:
   uint16_t toggleOffMinutes = 0;
   bool toggleActive = false;
   uint32_t toggleStarted = 0;
+  String sensorAddress;
+  float targetTemperature = 25.0f;
+  float currentTemperature = NAN;
+  bool sensorErrorReported = false;
 
   String path() const { return "/config/relay" + String(number) + ".json"; }
+
+  String addressText(const DeviceAddress address) const
+  {
+    String value;
+    for (uint8_t i = 0; i < 8; i++)
+    {
+      if (address[i] < 16)
+        value += "0";
+      value += String(address[i], HEX);
+    }
+    value.toUpperCase();
+    return value;
+  }
 
   void save()
   {
@@ -160,6 +188,8 @@ private:
     doc["toggleOffMinutes"] = toggleOffMinutes;
     doc["toggleActive"] = toggleActive;
     doc["toggleStarted"] = toggleStarted;
+    doc["sensorAddress"] = sensorAddress;
+    doc["targetTemperature"] = targetTemperature;
 
     File file = LittleFS.open(path(), "w");
     if (file)
@@ -231,6 +261,11 @@ public:
     toggleOffMinutes = doc["toggleOffMinutes"] | 0;
     toggleActive = doc["toggleActive"] | false;
     toggleStarted = doc["toggleStarted"] | 0;
+    sensorAddress = doc["sensorAddress"] | "";
+    if (doc["targetTemperature"].is<float>())
+      targetTemperature = doc["targetTemperature"].as<float>();
+    else if (doc["temperatureOn"].is<float>() && doc["temperatureOff"].is<float>())
+      targetTemperature = (doc["temperatureOn"].as<float>() + doc["temperatureOff"].as<float>()) / 2.0f;
     timerActive = false;
     Serial.printf("[Relay %u] Loaded: name=%s, mode=%s, enabled=%s, state=%s\n",
                   number, name.c_str(), mode.c_str(), enabled ? "yes" : "no", state ? "ON" : "OFF");
@@ -247,6 +282,9 @@ public:
   bool isToggleActive() const { return toggleActive; }
   uint16_t getToggleOnMinutes() const { return toggleOnMinutes; }
   uint16_t getToggleOffMinutes() const { return toggleOffMinutes; }
+  String getSensorAddress() const { return sensorAddress; }
+  float getTargetTemperature() const { return targetTemperature; }
+  float getCurrentTemperature() const { return currentTemperature; }
 
   uint32_t remainingTimer() const
   {
@@ -285,7 +323,7 @@ public:
 
   void setMode(const String &value)
   {
-    if (value != "manual" && value != "auto" && value != "timer" && value != "toggle")
+    if (value != "manual" && value != "auto" && value != "timer" && value != "toggle" && value != "temperature")
     {
       Serial.printf("[Relay %u] ERROR: Invalid mode '%s'\n", number, value.c_str());
       return;
@@ -363,6 +401,68 @@ public:
     if (toggleActive)
       applyState(true);
     save();
+  }
+
+  void setTemperatureConfig(const String &address, float target)
+  {
+    sensorAddress = address;
+    sensorAddress.toUpperCase();
+    targetTemperature = target;
+    sensorErrorReported = false;
+    Serial.printf("[Relay %u] Temperature control: sensor=%s, target=%.2f C, hysteresis=+/- %.2f C\n",
+                  number, sensorAddress.c_str(), targetTemperature, TEMPERATURE_HYSTERESIS);
+    save();
+  }
+
+  void updateTemperature()
+  {
+    if (mode != "temperature" || !enabled || sensorAddress.isEmpty())
+      return;
+
+    int sensorIndex = -1;
+    for (uint8_t i = 0; i < sensorCount; i++)
+    {
+      if (addressText(sensorAddresses[i]) == sensorAddress)
+      {
+        sensorIndex = i;
+        break;
+      }
+    }
+    if (sensorIndex < 0)
+    {
+      currentTemperature = NAN;
+      if (!sensorErrorReported)
+      {
+        errorBuffer = "Relay " + String(number) + " sensor not found.";
+        Serial.printf("[Relay %u] ERROR: Assigned DS18B20 sensor not found\n", number);
+        sensorErrorReported = true;
+      }
+      return;
+    }
+
+    currentTemperature = sensorTemperatures[sensorIndex];
+    if (currentTemperature == DEVICE_DISCONNECTED_C || isnan(currentTemperature))
+    {
+      if (!sensorErrorReported)
+      {
+        errorBuffer = "Relay " + String(number) + " sensor read failed.";
+        Serial.printf("[Relay %u] ERROR: DS18B20 temperature read failed\n", number);
+        sensorErrorReported = true;
+      }
+      return;
+    }
+    sensorErrorReported = false;
+
+    float turnOnAt = targetTemperature - TEMPERATURE_HYSTERESIS;
+    float turnOffAt = targetTemperature + TEMPERATURE_HYSTERESIS;
+    bool shouldBeOn = state ? currentTemperature < turnOffAt : currentTemperature <= turnOnAt;
+    if (shouldBeOn != state)
+    {
+      Serial.printf("[Relay %u] Temperature %.2f C changed output to %s (ON <= %.2f, OFF >= %.2f)\n",
+                    number, currentTemperature, shouldBeOn ? "ON" : "OFF", turnOnAt, turnOffAt);
+      applyState(shouldBeOn);
+      save();
+    }
   }
 
   bool shouldBeOnNow()
@@ -599,6 +699,58 @@ void setupRelayApi(uint8_t relayNumber)
               String response = jsonResponse(doc);
               request->send(200, "application/json", response); });
 
+  server.on((base + "/temperature").c_str(), HTTP_GET, [index](AsyncWebServerRequest *request)
+            {
+              JsonDocument doc;
+              doc["sensor"] = relays[index]->getSensorAddress();
+              doc["targetTemperature"] = relays[index]->getTargetTemperature();
+              doc["temperature"] = relays[index]->getCurrentTemperature();
+              String response = jsonResponse(doc);
+              request->send(200, "application/json", response); });
+  server.on((base + "/temperature").c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr,
+            [index](AsyncWebServerRequest *request, uint8_t *data, size_t length, size_t, size_t)
+            {
+              JsonDocument doc;
+              if (deserializeJson(doc, data, length) || !doc["sensor"].is<const char *>() ||
+                  !doc["targetTemperature"].is<float>())
+              {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid temperature settings\"}");
+                return;
+              }
+              float targetTemperature = doc["targetTemperature"].as<float>();
+              if (targetTemperature < -55.0f || targetTemperature > 125.0f)
+              {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Target temperature is outside DS18B20 range\"}");
+                return;
+              }
+              String sensorAddress = doc["sensor"].as<String>();
+              sensorAddress.toUpperCase();
+              bool sensorFound = false;
+              for (uint8_t i = 0; i < sensorCount; i++)
+              {
+                String address;
+                for (uint8_t byteIndex = 0; byteIndex < 8; byteIndex++)
+                {
+                  if (sensorAddresses[i][byteIndex] < 16)
+                    address += "0";
+                  address += String(sensorAddresses[i][byteIndex], HEX);
+                }
+                address.toUpperCase();
+                if (address == sensorAddress)
+                  sensorFound = true;
+              }
+              if (!sensorFound)
+              {
+                errorBuffer = "Selected DS18B20 sensor was not found.";
+                Serial.println("[DS18B20] ERROR: Relay assignment rejected for unknown sensor");
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Sensor not found\"}");
+                return;
+              }
+              relays[index]->setMode("temperature");
+              relays[index]->setTemperatureConfig(sensorAddress, targetTemperature);
+              request->send(200, "application/json", "{\"success\":true}");
+            });
+
   server.on((base + "/toggle-mode").c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr,
             [index](AsyncWebServerRequest *request, uint8_t *data, size_t length, size_t, size_t)
             {
@@ -634,6 +786,27 @@ void setupServer()
             { request->send(200, "text/plain", "true"); });
   server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", SW_VERSION); });
+  server.on("/api/sensors", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+              JsonDocument doc;
+              JsonArray list = doc["sensors"].to<JsonArray>();
+              for (uint8_t i = 0; i < sensorCount; i++)
+              {
+                String address;
+                for (uint8_t byteIndex = 0; byteIndex < 8; byteIndex++)
+                {
+                  if (sensorAddresses[i][byteIndex] < 16)
+                    address += "0";
+                  address += String(sensorAddresses[i][byteIndex], HEX);
+                }
+                address.toUpperCase();
+                JsonObject sensor = list.add<JsonObject>();
+                sensor["address"] = address;
+                sensor["temperature"] = sensorTemperatures[i];
+              }
+              doc["count"] = sensorCount;
+              String response = jsonResponse(doc);
+              request->send(200, "application/json", response); });
   server.on("/api/rtctime", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               if (!rtcReady || !rtc.begin())
@@ -651,6 +824,21 @@ void setupServer()
               Serial.println("[API] /api/time/update requested");
               bool updated = autoTimeUpdate();
               request->send(updated ? 200 : 500, "text/plain", updated ? "Time updated" : "Time update failed"); });
+  server.on("/api/reset", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
+              Serial.println("[API] /api/reset requested");
+              for (uint8_t i = 1; i <= NUM_RELAYS; i++)
+              {
+                String relayFile = "/config/relay" + String(i) + ".json";
+                if (LittleFS.exists(relayFile))
+                  LittleFS.remove(relayFile);
+              }
+              preferences.begin("wifi", false);
+              preferences.clear();
+              preferences.end();
+              restartRequested = true;
+              restartAt = millis() + 5000;
+              request->send(200, "application/json", "{\"success\":true,\"info\":\"Reset complete. Device will reboot in 5 seconds.\"}"); });
   server.on("/api/error", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               JsonDocument doc;
@@ -685,6 +873,34 @@ void setup(void)
     Serial.println("RTC not found");
     errorBuffer = "RTC not found. Time functions will be unavailable.";
   }
+
+  Serial.printf("[DS18B20] Searching on GPIO %u\n", ONE_WIRE_BUS);
+  sensors.begin();
+  sensorCount = min(static_cast<uint8_t>(sensors.getDeviceCount()), static_cast<uint8_t>(8));
+  for (uint8_t i = 0; i < sensorCount; i++)
+  {
+    if (sensors.getAddress(sensorAddresses[i], i))
+    {
+      Serial.printf("[DS18B20] Sensor %u found: ", i + 1);
+      for (uint8_t byteIndex = 0; byteIndex < 8; byteIndex++)
+      {
+        if (sensorAddresses[i][byteIndex] < 16)
+          Serial.print("0");
+        Serial.print(sensorAddresses[i][byteIndex], HEX);
+      }
+      Serial.println();
+    }
+  }
+  if (sensorCount == 0)
+  {
+    errorBuffer = "No DS18B20 sensors found on GPIO " + String(ONE_WIRE_BUS) + ".";
+    Serial.println("[DS18B20] ERROR: No sensors found");
+  }
+  else
+  {
+    Serial.printf("[DS18B20] %u sensor(s) ready\n", sensorCount);
+  }
+
   Serial.println("Initializing relays");
   for (uint8_t i = 0; i < NUM_RELAYS; i++)
     relays[i] = new Relay(RELAY_PINS[i], i + 1);
@@ -735,6 +951,12 @@ void loop(void)
   if (currentMillis - lastScheduleCheck >= 2000)
   {
     lastScheduleCheck = currentMillis;
+    if (sensorCount > 0)
+    {
+      sensors.requestTemperatures();
+      for (uint8_t i = 0; i < sensorCount; i++)
+        sensorTemperatures[i] = sensors.getTempC(sensorAddresses[i]);
+    }
     for (uint8_t i = 0; i < NUM_RELAYS; i++)
     {
       if (relays[i]->getMode() == "auto" && relays[i]->isEnabled())
@@ -743,11 +965,23 @@ void loop(void)
         if (scheduled != relays[i]->getState())
           relays[i]->setScheduledState(scheduled);
       }
+      relays[i]->updateTemperature();
     }
   }
 
   if (restartRequested && (long)(millis() - restartAt) >= 0)
   {
+    Serial.println("[System] Restarting now");
     ESP.restart();
+  }
+  else if (restartRequested)
+  {
+    static unsigned long lastRestartMessage = 0;
+    if (millis() - lastRestartMessage >= 1000)
+    {
+      lastRestartMessage = millis();
+      unsigned long remaining = (restartAt - millis() + 999) / 1000;
+      Serial.printf("[System] Restarting in %lu second%s\n", remaining, remaining == 1 ? "" : "s");
+    }
   }
 }

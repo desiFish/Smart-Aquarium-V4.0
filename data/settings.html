@@ -215,6 +215,20 @@
             background: #1976D2;
         }
 
+        .btn-reset {
+            background: #b71c1c;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn-reset:hover {
+            background: #d32f2f;
+        }
+
         @media (max-width: 768px) {
             .grid-container {
                 grid-template-columns: 1fr;
@@ -239,6 +253,7 @@
     <nav class="navbar">
         <button class="nav-btn" onclick="window.location.href='index.html'">Back</button>
         <button class="nav-btn" style="margin-left: 10px;" onclick="updateTime()">Update Time</button>
+        <button class="btn-reset" style="margin: 0 0 0 10px;" onclick="resetAll()">Reset All</button>
     </nav>
 
     <div class="grid-container">
@@ -398,6 +413,21 @@
                 .catch(error => {
                     console.error('Error updating time:', error);
                     alert('Failed to update time');
+                });
+        }
+
+        function resetAll() {
+            if (!confirm('Reset all relay values and WiFi settings to defaults?')) return;
+
+            fetch('/api/reset', { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) throw new Error('Reset request failed');
+                    return response.json();
+                })
+                .then(result => alert(result.info || 'Reset scheduled. Device will reboot in 5 seconds.'))
+                .catch(error => {
+                    console.error('Error resetting device:', error);
+                    alert('Failed to reset device');
                 });
         }
 
