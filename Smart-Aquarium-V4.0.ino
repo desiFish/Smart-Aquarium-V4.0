@@ -29,7 +29,7 @@
 
 #define NUM_RELAYS 4
 #define ONE_WIRE_BUS 4
-#define TEMPERATURE_HYSTERESIS 0.5f
+#define TEMPERATURE_HYSTERESIS 1.0f
 const uint8_t RELAY_PINS[NUM_RELAYS] = {26, 27, 14, 12};
 #define SW_VERSION "v0.3.0-beta"
 
@@ -55,6 +55,15 @@ uint8_t sensorCount = 0;
 float sensorTemperatures[8] = {NAN};
 unsigned long lastTemperatureRequest = 0;
 
+void addErrorMessage(const String &message)
+{
+  if (message.isEmpty())
+    return;
+  if (!errorBuffer.isEmpty())
+    errorBuffer += "\n";
+  errorBuffer += message;
+}
+
 bool enableWiFi()
 {
   return WiFi.status() == WL_CONNECTED;
@@ -66,14 +75,14 @@ bool autoTimeUpdate()
 
   if (!rtcReady || !rtc.begin())
   {
-    errorBuffer = "RTC not found. Time update cancelled.";
+    addErrorMessage("RTC not found. Time update cancelled.");
     Serial.println("[RTC] Update failed: RTC is not available");
     return false;
   }
 
   if (!enableWiFi())
   {
-    errorBuffer = "WiFi is not connected. RTC time update failed.";
+    addErrorMessage("WiFi is not connected. RTC time update failed.");
     Serial.println("[RTC] Update failed: WiFi is not connected");
     return false;
   }
@@ -89,7 +98,7 @@ bool autoTimeUpdate()
 
   if (!timeClient.update() || !timeClient.isTimeSet())
   {
-    errorBuffer = "NTP update failed. RTC time was not changed.";
+    addErrorMessage("NTP update failed. RTC time was not changed.");
     Serial.println("[RTC] Update failed: NTP time is not available");
     return false;
   }
@@ -97,7 +106,7 @@ bool autoTimeUpdate()
   time_t rawTime = timeClient.getEpochTime();
   if (rawTime < 1000000000UL)
   {
-    errorBuffer = "NTP returned an invalid time.";
+    addErrorMessage("NTP returned an invalid time.");
     Serial.println("[RTC] Update failed: invalid NTP epoch");
     return false;
   }
@@ -112,7 +121,7 @@ bool autoTimeUpdate()
   snprintf(message, sizeof(message), "RTC updated: %04d-%02d-%02d %02d:%02d:%02d",
            updatedTime.year(), updatedTime.month(), updatedTime.day(),
            updatedTime.hour(), updatedTime.minute(), updatedTime.second());
-  errorBuffer = message;
+  addErrorMessage(message);
   Serial.printf("[RTC] %s\n", message);
   return true;
 }
@@ -433,7 +442,7 @@ public:
       currentTemperature = NAN;
       if (!sensorErrorReported)
       {
-        errorBuffer = "Relay " + String(number) + " sensor not found.";
+        addErrorMessage("Relay " + String(number) + " sensor not found.");
         Serial.printf("[Relay %u] ERROR: Assigned DS18B20 sensor not found\n", number);
         sensorErrorReported = true;
       }
@@ -445,7 +454,7 @@ public:
     {
       if (!sensorErrorReported)
       {
-        errorBuffer = "Relay " + String(number) + " sensor read failed.";
+        addErrorMessage("Relay " + String(number) + " sensor read failed.");
         Serial.printf("[Relay %u] ERROR: DS18B20 temperature read failed\n", number);
         sensorErrorReported = true;
       }
@@ -696,6 +705,7 @@ void setupRelayApi(uint8_t relayNumber)
               doc["active"] = relays[index]->isTimerActive();
               doc["duration"] = relays[index]->getTimerDuration();
               doc["remaining"] = relays[index]->remainingTimer();
+              doc["state"] = relays[index]->getState() ? "ON" : "OFF";
               String response = jsonResponse(doc);
               request->send(200, "application/json", response); });
 
@@ -741,7 +751,7 @@ void setupRelayApi(uint8_t relayNumber)
               }
               if (!sensorFound)
               {
-                errorBuffer = "Selected DS18B20 sensor was not found.";
+                addErrorMessage("Selected DS18B20 sensor was not found.");
                 Serial.println("[DS18B20] ERROR: Relay assignment rejected for unknown sensor");
                 request->send(400, "application/json", "{\"success\":false,\"error\":\"Sensor not found\"}");
                 return;
@@ -863,7 +873,7 @@ void setup(void)
   if (!LittleFS.begin(true))
   {
     Serial.println("LittleFS mount failed");
-    errorBuffer = "LittleFS mount failed. Configuration may not be saved.";
+    addErrorMessage("LittleFS mount failed. Configuration may not be saved.");
   }
   if (!LittleFS.exists("/config"))
     LittleFS.mkdir("/config");
@@ -873,7 +883,7 @@ void setup(void)
   if (!rtcReady)
   {
     Serial.println("RTC not found");
-    errorBuffer = "RTC not found. Time functions will be unavailable.";
+    addErrorMessage("RTC not found. Time functions will be unavailable.");
   }
 
   Serial.printf("[DS18B20] Searching on GPIO %u\n", ONE_WIRE_BUS);
@@ -895,7 +905,7 @@ void setup(void)
   }
   if (sensorCount == 0)
   {
-    errorBuffer = "No DS18B20 sensors found on GPIO " + String(ONE_WIRE_BUS) + ".";
+    addErrorMessage("No DS18B20 sensors found on GPIO " + String(ONE_WIRE_BUS) + ".");
     Serial.println("[DS18B20] ERROR: No sensors found");
   }
   else

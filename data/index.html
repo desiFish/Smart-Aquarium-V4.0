@@ -950,8 +950,9 @@
 
                         const minutes = Math.floor(state.remaining / 60);
                         const seconds = state.remaining % 60;
+                        const nextAction = state.state === 'ON' ? 'Turning OFF' : 'Turning ON';
                         elements.countdown.textContent =
-                            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                            `${nextAction} in ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                     })
                     .catch(() => hideTimerAnimation(ledId));
             }
@@ -1150,6 +1151,10 @@
             // Manual mode toggle handler
             led.toggle.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
+                led.toggle.disabled = true;
+                setTimeout(() => {
+                    led.toggle.disabled = false;
+                }, 1500);
 
                 // Stop any timer animation and clear timer toggle
                 if (activeTimers[ledId]) {
