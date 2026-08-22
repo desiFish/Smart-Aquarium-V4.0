@@ -2,6 +2,7 @@
 <html>
 
 <head>
+    <meta charset="UTF-8">
     <title>Aquarium Control</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#33afff">
@@ -527,6 +528,13 @@
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
         }
 
+        .rtc-display {
+            color: #4CAF50;
+            font-size: 1rem;
+            text-align: center;
+            min-height: 1.2em;
+        }
+
         .nav-btn {
             background: #252525;
             color: #2196F3;
@@ -602,6 +610,8 @@
             </div>
         </div>
     </div>
+
+    <div id="rtcDisplay" class="rtc-display">RTC Error</div>
 
     <nav class="navbar">
         <button class="nav-btn" onclick="window.location.href='settings.html'">Settings</button>
@@ -919,7 +929,8 @@
 
     <footer class="version-footer">
         <span id="versionInfo">Checking version...</span>
-        <span class="copyright">© 2025 desiFish. All rights reserved.</span>
+        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a>. All
+            rights reserved.</span>
     </footer>
 
     <script>
@@ -1483,24 +1494,38 @@
         }
 
         // Connection status check
+        let connectionCheckId = 0;
         function checkConnection() {
-            fetch('/api/status')
-                .then(response => response.text())
+            const conn = document.getElementById('connectionStatus');
+            const checkId = ++connectionCheckId;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+            fetch(`/api/status?check=${Date.now()}`, {
+                cache: 'no-store',
+                signal: controller.signal
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Status request failed');
+                    return response.text();
+                })
                 .then(status => {
-                    const conn = document.getElementById('connectionStatus');
-                    if (status === 'true') {
+                    if (checkId !== connectionCheckId) return;
+                    if (status.trim() === 'true') {
                         conn.className = 'connection-status online';
                         conn.querySelector('span:last-child').textContent = 'Online';
-                    } else {
+                    }
+                    else {
                         conn.className = 'connection-status offline';
                         conn.querySelector('span:last-child').textContent = 'Offline';
                     }
                 })
                 .catch(() => {
-                    const conn = document.getElementById('connectionStatus');
+                    if (checkId !== connectionCheckId) return;
                     conn.className = 'connection-status offline';
                     conn.querySelector('span:last-child').textContent = 'Offline';
-                });
+                })
+                .finally(() => clearTimeout(timeoutId));
         }
 
         function fetchVersion() {
@@ -1516,6 +1541,26 @@
                     console.error('Error fetching version:', error);
                     document.getElementById('versionInfo').textContent = 'error';
                 });
+        }
+
+        async function fetchRtcData() {
+            try {
+                const response = await fetch(`/api/rtctime?check=${Date.now()}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error('RTC request failed');
+                const data = (await response.text()).trim();
+                return data ? `${data}\u00B0C` : 'RTC Error';
+            } catch (error) {
+                return 'RTC Error';
+            }
+        }
+
+        function fetchError() {
+            fetch('/api/error')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.error) alert(`Message: ${result.error}`);
+                })
+                .catch(error => console.error('Error fetching device message:', error));
         }
 
         // Replace existing initialization code at the bottom with:
@@ -1534,8 +1579,16 @@
             });
 
             // Setup periodic checks
-            setInterval(checkConnection, 5000);
+            setInterval(checkConnection, 3000);
+            setInterval(fetchError, 3000);
+            setInterval(() => fetchRtcData().then(data => {
+                document.getElementById('rtcDisplay').textContent = data;
+            }), 15000);
             checkConnection();
+            fetchError();
+            fetchRtcData().then(data => {
+                document.getElementById('rtcDisplay').textContent = data;
+            });
             fetchVersion();
         }
 
