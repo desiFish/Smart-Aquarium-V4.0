@@ -30,8 +30,16 @@
 #define NUM_RELAYS 4
 #define ONE_WIRE_BUS 4
 #define TEMPERATURE_HYSTERESIS 1.0f
+#define LED_PIN 19
+#define BUZZER_PIN 18
+#define BUTTON_LEFT 36
+#define BUTTON_RIGHT 39
 const uint8_t RELAY_PINS[NUM_RELAYS] = {26, 27, 14, 12};
-#define SW_VERSION "v0.3.0-beta"
+#define SW_VERSION "v0.4.0-beta"
+
+Adafruit_NeoPixel statusLed(1, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+const uint8_t buttonDebounceMs = 30;
 
 Preferences preferences;
 AsyncWebServer server(80);
@@ -45,23 +53,235 @@ NTPClient timeClient(ntpUDP, ntpPoolServer.c_str(), timeZoneOffset);
 bool restartRequested = false;
 unsigned long restartAt = 0;
 bool wifiSetupMode = false;
+bool resetAll = false;
 bool rtcReady = false;
 bool otaActive = false;
 unsigned long otaProgressMillis = 0;
 String errorBuffer;
+String oledErrorString;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress sensorAddresses[8];
 uint8_t sensorCount = 0;
 float sensorTemperatures[8] = {NAN};
 
-void addErrorMessage(const String &message)
+#define i2c_Address 0x3c // initialize with the I2C addr 0x3C Typically eBay OLED's
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET -1    //   QT-PY / XIAO
+Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+const uint32_t DISPLAY_INACTIVITY_TIMEOUT = 30000UL;
+bool displayIsOn = true;
+bool displayReady = false;
+unsigned long lastButtonPressTime = 0;
+
+void displayPower(bool on)
+{
+  static bool currentState = true;
+  if (currentState == on)
+    return;
+
+  Wire.beginTransmission(0x3C);
+  Wire.write(0x00);
+  Wire.write(on ? 0xAF : 0xAE);
+  Wire.endTransmission();
+  currentState = on;
+}
+
+void markDisplayActivity()
+{
+  lastButtonPressTime = millis();
+  if (!displayIsOn)
+  {
+    displayIsOn = true;
+    displayPower(true);
+  }
+}
+
+void drawWiFiSignal(uint8_t signalBars)
+{
+  const int xPositions[5] = {96, 102, 108, 114, 120};
+  const int y = 2;
+  const int radius = 2;
+
+  for (uint8_t i = 0; i < 5; i++)
+  {
+    if (i < signalBars)
+      display.fillCircle(xPositions[i], y, radius, SH110X_WHITE);
+    else
+      display.drawCircle(xPositions[i], y, radius, SH110X_WHITE);
+  }
+}
+
+void drawStatusScreen()
+{
+  display.clearDisplay();
+  display.setTextColor(SH110X_WHITE);
+  display.setTextSize(1);
+  display.setFont(NULL);
+
+  if (resetAll)
+  {
+    display.setCursor(8, 4);
+    display.println("Resetting All");
+    display.setCursor(8, 18);
+    display.println("Please wait");
+    display.display();
+    return;
+  }
+
+  if (WiFi.getMode() == WIFI_AP)
+  {
+    display.setCursor(8, 4);
+    display.println("Connect to:");
+    display.setCursor(8, 18);
+    display.println("Smart-Aquarium");
+    display.setCursor(8, 36);
+    display.println("AP IP:");
+    display.setCursor(8, 48);
+    display.println(WiFi.softAPIP().toString());
+    display.display();
+    return;
+  }
+
+  uint8_t signalBars = 0;
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    int32_t rssi = WiFi.RSSI();
+    if (rssi >= -50)
+      signalBars = 5;
+    else if (rssi >= -60)
+      signalBars = 4;
+    else if (rssi >= -67)
+      signalBars = 3;
+    else if (rssi >= -75)
+      signalBars = 2;
+    else if (rssi >= -85)
+      signalBars = 1;
+  }
+  drawWiFiSignal(signalBars);
+
+  display.setCursor(10, (SCREEN_HEIGHT / 2) - 4);
+  display.print("IP: ");
+  if (WiFi.status() == WL_CONNECTED)
+    display.print(WiFi.localIP().toString());
+  else
+    display.print("Not connected");
+
+  if (restartRequested)
+  {
+    display.setCursor(10, SCREEN_HEIGHT - 14);
+    display.println("Restarting...");
+  }
+
+  display.display();
+}
+
+void waitForAnyButton()
+{
+  while (true)
+  {
+    if (digitalRead(BUTTON_LEFT) == HIGH || digitalRead(BUTTON_RIGHT) == HIGH)
+    {
+      while (digitalRead(BUTTON_LEFT) == HIGH || digitalRead(BUTTON_RIGHT) == HIGH)
+      {
+        delay(20);
+      }
+      break;
+    }
+    delay(20);
+  }
+}
+
+void showSetupErrors()
+{
+  if (oledErrorString.isEmpty())
+    return;
+
+  display.clearDisplay();
+  display.setTextColor(SH110X_WHITE);
+  display.setTextSize(1);
+  display.setFont(NULL);
+  display.setCursor(0, 0);
+  display.println("ERRORS:");
+  display.setCursor(0, 12);
+  display.println(oledErrorString);
+  display.setCursor(0, 56);
+  display.println("Press any button");
+  display.display();
+
+  waitForAnyButton();
+}
+
+void beep(uint8_t times = 1, uint16_t delayMs = 200)
+{
+  for (uint8_t i = 0; i < times; i++)
+  {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(delayMs);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(delayMs);
+  }
+}
+
+void ledBlink(const String &color, uint8_t times = 1, uint16_t delayMs = 500)
+{
+  uint32_t rgb = 0;
+  if (color == "RED")
+    rgb = statusLed.Color(255, 0, 0);
+  else if (color == "GREEN")
+    rgb = statusLed.Color(0, 255, 0);
+  else if (color == "BLUE")
+    rgb = statusLed.Color(0, 0, 255);
+  else if (color == "YELLOW")
+    rgb = statusLed.Color(255, 255, 0);
+  else if (color == "OFF")
+    rgb = 0;
+
+  for (uint8_t i = 0; i < times; i++)
+  {
+    statusLed.setPixelColor(0, rgb);
+    statusLed.show();
+    delay(delayMs);
+    statusLed.clear();
+    statusLed.show();
+    delay(delayMs);
+  }
+}
+
+void addBufferError(const String &message)
 {
   if (message.isEmpty())
     return;
+
   if (!errorBuffer.isEmpty())
     errorBuffer += "\n";
   errorBuffer += message;
+}
+
+void addOledError(const String &section)
+{
+  if (section.isEmpty())
+    return;
+
+  if (!oledErrorString.isEmpty() && oledErrorString.indexOf(section) >= 0)
+    return;
+
+  if (!oledErrorString.isEmpty())
+    oledErrorString += " & ";
+  oledErrorString += section;
+}
+
+void addSetupError(const String &section, const String &message)
+{
+  if (message.isEmpty())
+    return;
+
+  addBufferError(section + ": " + message);
+
+  if (section == "RTC" || section == "WIFI" || section == "DS18B20" || section == "LFS")
+    addOledError(section);
 }
 
 void loadTimeSettings()
@@ -106,14 +326,14 @@ bool autoTimeUpdate()
 
   if (!rtcReady || !rtc.begin())
   {
-    addErrorMessage("RTC not found. Time update cancelled.");
+    addBufferError("RTC not found. Time update cancelled.");
     Serial.println("[RTC] Update failed: RTC is not available");
     return false;
   }
 
   if (!enableWiFi())
   {
-    addErrorMessage("WiFi is not connected. RTC time update failed.");
+    addBufferError("WiFi is not connected. RTC time update failed.");
     Serial.println("[RTC] Update failed: WiFi is not connected");
     return false;
   }
@@ -129,7 +349,7 @@ bool autoTimeUpdate()
 
   if (!timeClient.update() || !timeClient.isTimeSet())
   {
-    addErrorMessage("NTP update failed. RTC time was not changed.");
+    addBufferError("NTP update failed. RTC time was not changed.");
     Serial.println("[RTC] Update failed: NTP time is not available");
     return false;
   }
@@ -137,7 +357,7 @@ bool autoTimeUpdate()
   time_t rawTime = timeClient.getEpochTime();
   if (rawTime < 1000000000UL)
   {
-    addErrorMessage("NTP returned an invalid time.");
+    addBufferError("NTP returned an invalid time.");
     Serial.println("[RTC] Update failed: invalid NTP epoch");
     return false;
   }
@@ -157,7 +377,7 @@ bool autoTimeUpdate()
   snprintf(message, sizeof(message), "RTC updated: %04d-%02d-%02d %02d:%02d:%02d",
            updatedTime.year(), updatedTime.month(), updatedTime.day(),
            updatedTime.hour(), updatedTime.minute(), updatedTime.second());
-  addErrorMessage(message);
+  addBufferError(message);
   Serial.printf("[RTC] %s\n", message);
   return true;
 }
@@ -478,7 +698,7 @@ public:
       currentTemperature = NAN;
       if (!sensorErrorReported)
       {
-        addErrorMessage("Relay " + String(number) + " sensor not found.");
+        addSetupError("DS18B20", "Relay " + String(number) + " sensor not found.");
         Serial.printf("[Relay %u] ERROR: Assigned DS18B20 sensor not found\n", number);
         sensorErrorReported = true;
       }
@@ -490,7 +710,7 @@ public:
     {
       if (!sensorErrorReported)
       {
-        addErrorMessage("Relay " + String(number) + " sensor read failed.");
+        addSetupError("DS18B20", "Relay " + String(number) + " sensor read failed.");
         Serial.printf("[Relay %u] ERROR: DS18B20 temperature read failed\n", number);
         sensorErrorReported = true;
       }
@@ -555,6 +775,24 @@ String jsonResponse(JsonDocument &doc)
   String response;
   serializeJson(doc, response);
   return response;
+}
+
+void resetAllSettings()
+{
+  resetAll = true;
+  for (uint8_t i = 1; i <= NUM_RELAYS; i++)
+  {
+    String relayFile = "/config/relay" + String(i) + ".json";
+    if (LittleFS.exists(relayFile))
+      LittleFS.remove(relayFile);
+  }
+
+  preferences.begin("wifi", false);
+  preferences.clear();
+  preferences.end();
+
+  restartRequested = true;
+  restartAt = millis() + 5000;
 }
 
 void setupWifi()
@@ -624,6 +862,7 @@ void setupWifi()
     else
     {
       Serial.println("Wifi connection failed");
+      addSetupError("WIFI", "connection failed.");
     }
   }
   preferences.end();
@@ -787,7 +1026,7 @@ void setupRelayApi(uint8_t relayNumber)
               }
               if (!sensorFound)
               {
-                addErrorMessage("Selected DS18B20 sensor was not found.");
+                addSetupError("DS18B20", "Selected sensor was not found.");
                 Serial.println("[DS18B20] ERROR: Relay assignment rejected for unknown sensor");
                 request->send(400, "application/json", "{\"success\":false,\"error\":\"Sensor not found\"}");
                 return;
@@ -924,17 +1163,7 @@ void setupServer()
   server.on("/api/reset", HTTP_POST, [](AsyncWebServerRequest *request)
             {
               Serial.println("[API] /api/reset requested");
-              for (uint8_t i = 1; i <= NUM_RELAYS; i++)
-              {
-                String relayFile = "/config/relay" + String(i) + ".json";
-                if (LittleFS.exists(relayFile))
-                  LittleFS.remove(relayFile);
-              }
-              preferences.begin("wifi", false);
-              preferences.clear();
-              preferences.end();
-              restartRequested = true;
-              restartAt = millis() + 5000;
+              resetAllSettings();
               request->send(200, "application/json", "{\"success\":true,\"info\":\"Reset complete. Device will reboot in 5 seconds.\"}"); });
   server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request)
             {
@@ -960,22 +1189,48 @@ void setup(void)
   Serial.begin(115200);
   Serial.println("Starting Smart Aquarium V4.0");
 
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUTTON_LEFT, INPUT);
+  pinMode(BUTTON_RIGHT, INPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  statusLed.begin();
+  statusLed.setBrightness(100);
+  ledBlink("RED", 1);
+  beep(1, 200);
+
+  lastButtonPressTime = millis();
+  displayReady = display.begin(i2c_Address, true);
+  if (!displayReady)
+  {
+    Serial.println("[DISPLAY] OLED init failed");
+    displayIsOn = false;
+    addBufferError("DISPLAY: init failed.");
+    beep(4, 200);
+  }
+  else
+  {
+    displayPower(true);
+    display.setContrast(0);
+    display.clearDisplay();
+    display.setTextColor(SH110X_WHITE);
+    display.setTextSize(1);
+    display.setFont(NULL);
+    display.setCursor(7, 10);
+    display.println("Smart Aquarium V4.0");
+    display.setCursor(28, 35);
+    display.println("Initialising");
+    display.display();
+    delay(500);
+  }
+
   Serial.println("Initializing LittleFS");
   if (!LittleFS.begin(true))
   {
     Serial.println("LittleFS mount failed");
-    addErrorMessage("LittleFS mount failed. Configuration may not be saved.");
+    addSetupError("LFS", "mount failed. Config may not save.");
   }
   if (!LittleFS.exists("/config"))
     LittleFS.mkdir("/config");
-
-  Serial.println("Initializing RTC");
-  rtcReady = rtc.begin();
-  if (!rtcReady)
-  {
-    Serial.println("RTC not found");
-    addErrorMessage("RTC not found. Time functions will be unavailable.");
-  }
 
   loadTimeSettings();
 
@@ -998,7 +1253,7 @@ void setup(void)
   }
   if (sensorCount == 0)
   {
-    addErrorMessage("No DS18B20 sensors found on GPIO " + String(ONE_WIRE_BUS) + ".");
+    addSetupError("DS18B20", "No sensors found on GPIO " + String(ONE_WIRE_BUS) + ".");
     Serial.println("[DS18B20] ERROR: No sensors found");
   }
   else
@@ -1012,6 +1267,14 @@ void setup(void)
 
   setupWifi();
 
+  Serial.println("Initializing RTC");
+  rtcReady = rtc.begin();
+  if (!rtcReady)
+  {
+    Serial.println("RTC not found");
+    addSetupError("RTC", "not found. Time functions unavailable.");
+  }
+
   if (!wifiSetupMode)
   {
     Serial.println("Setting up server");
@@ -1021,6 +1284,15 @@ void setup(void)
     ElegantOTA.onEnd(onOTAEnd);
     setupServer();
     Serial.println("Server setup complete");
+    if (rtcReady)
+    {
+      DateTime now = rtc.now();
+      if (rtc.lostPower() || now.year() < 2026)
+      {
+        Serial.println("[RTC] RTC lost power or time is invalid, updating from NTP");
+        autoTimeUpdate();
+      }
+    }
   }
 
   // task executed in the loop2() function, with priority 1 and executed on core 0
@@ -1034,14 +1306,53 @@ void setup(void)
       &loop2Code,  // Task handle to keep track of created task
       0);          // pin task to core 0
   Serial.println("Setup complete");
+  ledBlink("GREEN", 1);
+  beep(1, 200);
+  if (displayReady)
+    showSetupErrors();
 }
 
 void loop2(void *pvParameters)
 {
   unsigned long lastScheduleCheck = 0;
+  unsigned long lastButtonCheck = 0;
+  unsigned long leftButtonDownSince = 0;
+  bool leftButtonWasDown = false;
 
   for (;;)
   {
+    if (millis() - lastButtonCheck >= buttonDebounceMs)
+    {
+      lastButtonCheck = millis();
+
+      bool leftDown = digitalRead(BUTTON_LEFT) == HIGH;
+      bool rightDown = digitalRead(BUTTON_RIGHT) == HIGH;
+
+      if (leftDown)
+      {
+        if (!leftButtonWasDown)
+        {
+          leftButtonWasDown = true;
+          leftButtonDownSince = millis();
+        }
+        else if ((millis() - leftButtonDownSince) >= 10000UL)
+        {
+          Serial.println("[Button] LEFT held 10s -> reset all settings");
+          resetAllSettings();
+          leftButtonDownSince = millis();
+        }
+      }
+      else
+      {
+        leftButtonWasDown = false;
+      }
+
+      if (leftDown)
+        Serial.println("[Button] LEFT pressed");
+      if (rightDown)
+        Serial.println("[Button] RIGHT pressed");
+    }
+
     // Keep timer and toggle modes responsive, independent of schedule polling.
     for (uint8_t i = 0; i < NUM_RELAYS; i++)
       relays[i]->update();
@@ -1076,9 +1387,32 @@ void loop2(void *pvParameters)
 void loop(void)
 {
   ElegantOTA.loop();
+  unsigned long currentMillis = millis();
+  if (displayReady)
+  {
+    if (resetAll || restartRequested || digitalRead(BUTTON_LEFT) == HIGH || digitalRead(BUTTON_RIGHT) == HIGH)
+    {
+      markDisplayActivity();
+      if (displayIsOn)
+        drawStatusScreen();
+    }
+
+    if (displayIsOn && (millis() - lastButtonPressTime >= DISPLAY_INACTIVITY_TIMEOUT))
+    {
+      displayIsOn = false;
+      displayPower(false);
+    }
+
+    static unsigned long lastStatusDraw = 0;
+
+    if (displayIsOn && (currentMillis - lastStatusDraw >= 4000UL))
+    {
+      lastStatusDraw = currentMillis;
+      drawStatusScreen();
+    }
+  }
 
   static unsigned long lastTimeCheck = 0;
-  unsigned long currentMillis = millis();
   if (currentMillis - lastTimeCheck >= 3600000UL)
   {
     lastTimeCheck = currentMillis;

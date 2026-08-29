@@ -6,124 +6,146 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wi-Fi Manager</title>
   <style>
+    * {
+      box-sizing: border-box
+    }
+
     html {
       font-family: Arial, Helvetica, sans-serif;
-      display: inline-block;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 1.8rem;
-      color: white;
-    }
-
-    p {
-      font-size: 1.4rem;
-    }
-
-    .topnav {
-      overflow: hidden;
-      background-color: #0A1128;
+      background: #121212;
+      color: #fff;
+      text-align: center
     }
 
     body {
       margin: 0;
+      min-height: 100vh;
+      background: #121212;
+      color: #fff
+    }
+
+    .topnav {
+      background: #0d0d0d;
+      padding: 10px 8px;
+      border-bottom: 1px solid #333
+    }
+
+    .topnav h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 700
     }
 
     .content {
-      padding: 5%;
-    }
-
-    .card-grid {
-      max-width: 800px;
-      margin: 0 auto;
-      display: grid;
-      grid-gap: 2rem;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      padding: 12px 12px 8px
     }
 
     .card {
-      background-color: white;
-      box-shadow: 2px 2px 12px 1px rgba(140, 140, 140, .5);
+      max-width: 440px;
+      margin: 0 auto;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 10px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, .22);
+      padding: 14px 12px
     }
 
-    .card-title {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #034078;
-    }
-
-    input[type=submit] {
-      border: none;
-      color: #FEFCFB;
-      background-color: #034078;
-      padding: 15px 15px;
+    .version-footer {
+      margin-top: 12px;
+      width: 100%;
+      font-size: .62rem;
+      color: #666;
       text-align: center;
+      background: #121212;
+      padding: 6px 0;
+      border-top: 1px solid #252525;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .copyright {
+      font-size: .65rem;
+      color: #555;
+    }
+
+    .version-footer a {
+      color: #888;
       text-decoration: none;
-      display: inline-block;
-      font-size: 16px;
-      width: 100px;
-      margin-right: 10px;
-      border-radius: 4px;
-      transition-duration: 0.4s;
     }
 
-    input[type=submit]:hover {
-      background-color: #1282A2;
-    }
-
-    input[type=text],
-    input[type=password],
-    input[type=number],
-    select {
-      width: 50%;
-      padding: 12px 20px;
-      margin: 18px;
-      display: inline-block;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-sizing: border-box;
+    form {
+      display: grid;
+      gap: 10px;
+      text-align: left
     }
 
     label {
-      font-size: 1.2rem;
+      display: block;
+      font-size: .9rem;
+      font-weight: 700;
+      margin: 0 0 5px
     }
 
-    .value {
-      font-size: 1.2rem;
-      color: #1282A2;
+    .input,
+    .password-row input,
+    .toggle-password,
+    input[type=submit] {
+      font: inherit;
+      border-radius: 7px
     }
 
-    .state {
-      font-size: 1.2rem;
-      color: #1282A2;
+    .input,
+    .password-row input {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid #333;
+      background: #333;
+      color: #fff;
+      outline: 0
     }
 
-    button {
+    .input:focus,
+    .password-row input:focus {
+      border-color: #666;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, .08)
+    }
+
+    .password-row {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .password-row input {
+      flex: 1;
+      margin: 0
+    }
+
+    .toggle-password,
+    input[type=submit] {
       border: none;
-      color: #FEFCFB;
-      padding: 15px 32px;
-      text-align: center;
-      font-size: 16px;
-      width: 100px;
-      border-radius: 4px;
-      transition-duration: 0.4s;
+      cursor: pointer;
+      color: #fff;
+      background: #2196F3;
+      padding: 9px 12px;
+      font-weight: 700
     }
 
-    .button-on {
-      background-color: #034078;
+    .toggle-password {
+      min-width: 68px
     }
 
-    .button-on:hover {
-      background-color: #1282A2;
+    .toggle-password:hover,
+    input[type=submit]:hover {
+      background: #1976D2
     }
 
-    .button-off {
-      background-color: #858585;
-    }
-
-    .button-off:hover {
-      background-color: #252524;
+    input[type=submit] {
+      display: block;
+      width: 100%;
+      margin-top: 2px;
+      padding: 10px 12px
     }
   </style>
 </head>
@@ -133,20 +155,24 @@
     <h1>Wi-Fi Manager</h1>
   </div>
   <div class="content">
-    <div class="card-grid">
-      <div class="card">
-        <form action="/wifi" method="POST">
-          <p>
-            <label for="ssid">SSID</label>
-            <input type="text" id="ssid" name="ssid"><br>
-            <label for="pass">Password</label>
-            <input type="password" id="pass" name="pass"><br>
-            <input type="submit" value="Submit">
-          </p>
-        </form>
-      </div>
+    <div class="card">
+      <form action="/wifi" method="POST">
+        <div><label for="ssid">SSID</label><input class="input" type="text" id="ssid" name="ssid"></div>
+        <div><label for="pass">Password</label>
+          <div class="password-row"><input type="password" id="pass" name="pass"><button type="button"
+              class="toggle-password" onclick="togglePassword(this.previousElementSibling)">Show</button></div>
+        </div>
+        <input type="submit" value="Connect">
+      </form>
     </div>
   </div>
+  <footer class="version-footer">
+    <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a>. All
+      rights reserved.</span>
+  </footer>
+  <script>
+    function togglePassword(el) { const h = el.type === 'password'; el.type = h ? 'text' : 'password'; el.parentNode.querySelector('.toggle-password').textContent = h ? 'Hide' : 'Show' }
+  </script>
 </body>
 
 </html>
