@@ -81,21 +81,11 @@ _Project under development_ 🛠️
 A cutting-edge aquarium control system that will revolutionize your underwater world! 🎮 
 Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 
-### Upcoming Features:
-- ~~📟 20x4 LCD Display for on-device status~~
-  ~~- Real-time relay status~~
-  ~~- Current time and schedules~~
-  ~~- Basic system information~~
-  ~~- No WiFi required for essential monitoring~~
-
-> Note: Since this version is using webserver, I am putting away the LCD option, since all controls are available in web server. Rather I will use 4 WS2812B RGB LEDs for simple status purpose.
-> The LCD version along with buttons will feature in Smart Aquarium V4.1
-
-- 💡 4x WS2812B RGB LEDs for status indication
-  - Visual relay status indication
+- 💡 1x WS2812B RGB LEDs for status indication
+  - OLED Display for IP Address and other status
   - Network connection status
-  - System status alerts
-  - Error condition warnings
+  - System status alerts (Via Web-Page)
+  - Error condition warnings (Via Beep, LED, Web-Page)
 
 ### Current Features:
 - 🤜 Better Web UI
@@ -108,8 +98,8 @@ Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 - 💽 Preferences library for persistent settings storage
 - 🕒 Real-time scheduling with DS3231 RTC
 - 🌐 NTP time synchronization
-- 🔌 Controls up to 4 independent relays (easily scalable)
-- 🎛️ Three operating modes per relay
+- 🔌 Controls up to 4 independent relays (easily scalable by adjusting NUM_RELAYS)
+- 🎛️ Four operating modes per relay
 - 💡 State persistence across power cycles
 - 📱 Mobile-first responsive interface
 - ⚡ Runs on both CPU cores for reliability
@@ -119,14 +109,13 @@ Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
 
 ### Scalability Note:
 - ✨ Backend code is fully scalable - just modify NUM_RELAYS and RELAY_PINS array
-- 🔧 Web UI JavaScript is scalable - all functions work with any relay ID
-- ⚠️ HTML components need manual duplication with correct ID numbers for additional relays
+- 🔧 Web UI automatically scales by fetching NUM_RELAYS 
 - 📍 Default pin configuration: GPIO 26, 27, 14, 12
 - 🔧 Max relay count limited only by available GPIO pins
 
 ## 📱 Operating Modes
 
-Project_Mina offers three versatile operating modes for each relay:
+Project_Mina offers four versatile operating modes for each relay:
 
 ### 🔄 Manual Mode
 Default operating mode for all relays.
@@ -150,6 +139,9 @@ Scheduled operation based on time of day.
 3. Handles overnight schedules (ON: 22:00, OFF: 06:00)
 4. Checks schedule every second
 5. Schedule persists through power cycles
+
+### Temperature Mode
+Scheduled operation based on temperature probe (DS18B20).
 
 > 💡 **Tip**: For equipment that needs to run overnight, set the ON time after the OFF time
 > (e.g., ON: 22:00, OFF: 06:00)
