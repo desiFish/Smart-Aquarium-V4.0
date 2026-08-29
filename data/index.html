@@ -679,6 +679,60 @@
 
     <script>
         let relayIds = [];
+        let temperatureSensorEnabled = true;
+        const ledStatusLocks = {};  // Per-relay locks to prevent overlapping requests
+        const lastServerModes = {};
+        let errorCheckInFlight = false;  // Prevent overlapping error checks
+        let connectionCheckId = 0;  // Cancellation token for connection checks
+
+        function applyTemperatureModeAvailability() {
+            relayIds.forEach(ledId => {
+                const tempRadio = document.getElementById(`modeTemperature_${ledId}`);
+                const tempLabel = document.querySelector(`label[for="modeTemperature_${ledId}"]`);
+                const tempPanel = document.getElementById(`temperatureControl_${ledId}`);
+                if (!tempRadio || !tempLabel || !tempPanel) return;
+
+                if (temperatureSensorEnabled) {
+                    tempRadio.style.display = '';
+                    tempLabel.style.display = '';
+                    tempPanel.style.display = '';
+                    tempRadio.disabled = false;
+                    return;
+                }
+
+                tempRadio.style.display = 'none';
+                tempLabel.style.display = 'none';
+                tempPanel.style.display = 'none';
+                tempRadio.disabled = true;
+
+                const currentMode = Array.from(document.querySelectorAll(`input[name="mode_${ledId}"]`)).find(m => m.checked)?.value;
+                if (currentMode === 'temperature') {
+                    const manualRadio = document.getElementById(`modeManual_${ledId}`);
+                    if (manualRadio) manualRadio.checked = true;
+                    const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
+                    panels.forEach(panel => panel.classList.remove('active'));
+                    const manualPanel = document.getElementById(`manualControl_${ledId}`);
+                    if (manualPanel) manualPanel.classList.add('active');
+                }
+            });
+        }
+
+        function fetchSystemConfig() {
+            return fetch('/api/system/config', { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) throw new Error('System config request failed');
+                    return response.json();
+                })
+                .then(config => {
+                    temperatureSensorEnabled = config.useTempSensor !== false;
+                    applyTemperatureModeAvailability();
+                })
+                .catch(error => {
+                    console.error('Error fetching system config:', error);
+                    temperatureSensorEnabled = true;
+                    applyTemperatureModeAvailability();
+                });
+        }
 
         function generateRelayPanels(relayCount) {
             const grid = document.getElementById('relayGrid');
@@ -830,7 +884,7 @@
                     })
                     .then(mode => {
                         // Validate mode
-                        const validModes = ['manual', 'auto', 'timer', 'temperature'];
+                        const validModes = temperatureSensorEnabled ? ['manual', 'auto', 'timer', 'temperature'] : ['manual', 'auto', 'timer'];
                         mode = mode.toLowerCase().trim();
 
                         if (!validModes.includes(mode)) return;
@@ -869,7 +923,8 @@
                     })
                     .then(mode => {
                         mode = mode.toLowerCase().trim();
-                        if (!['manual', 'auto', 'timer', 'temperature'].includes(mode)) return;
+                        const validModes = temperatureSensorEnabled ? ['manual', 'auto', 'timer', 'temperature'] : ['manual', 'auto', 'timer'];
+                        if (!validModes.includes(mode)) mode = 'manual';
 
                         // Select the correct radio button
                         const modeSelector = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
@@ -1058,9 +1113,7 @@
                         availableSensors.forEach(sensor => {
                             const option = document.createElement('option');
                             option.value = sensor.address;
-                            const temperature = typeof sensor.temperature === 'number' ? sensor.temperature : NaN;
-                            const reading = Number.isFinite(temperature) ? `${temperature.toFixed(1)}°C` : 'Read error';
-                            option.textContent = `Sensor ${sensor.address.slice(-4)} (${reading})`;
+                            option.textContent = `Sensor ${sensor.address.slice(-4)}`;
                             select.appendChild(option);
                         });
                     });
@@ -1093,13 +1146,15 @@
                 temperatureValue: document.querySelector(`#temperatureValue_${ledId}`)
             };
 
-            fetch(`/api/led${ledId}/temperature`)
-                .then(response => response.json())
-                .then(settings => {
-                    led.temperatureSensor.value = settings.sensor || '';
-                    led.temperatureTarget.value = settings.targetTemperature;
-                })
-                .catch(error => console.error(`Error loading temperature settings for relay ${ledId}:`, error));
+            if (temperatureSensorEnabled && ledStates[ledId].enabled) {
+                fetch(`/api/led${ledId}/temperature`)
+                    .then(response => response.json())
+                    .then(settings => {
+                        led.temperatureSensor.value = settings.sensor || '';
+                        led.temperatureTarget.value = settings.targetTemperature;
+                    })
+                    .catch(error => console.error(`Error loading temperature settings for relay ${ledId}:`, error));
+            }
 
             document.querySelector(`#setTemperature_${ledId}`).onclick = () => {
                 const sensor = led.temperatureSensor.value;
@@ -1342,19 +1397,38 @@
 
         // Update LED status
         function updateLEDStatus(ledId) {
+            // Prevent overlapping requests for this relay
+            if (ledStatusLocks[ledId]) return;
+            ledStatusLocks[ledId] = true;
+
             const indicator = document.querySelector(`#led${ledId} .status-indicator`);
             const statusText = document.querySelector(`#liveStatus_${ledId}`);
             const toggle = document.querySelector(`#ledToggle_${ledId}`);
             const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
             const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
 
-            fetch(`/api/led${ledId}/system/state?check=${Date.now()}`, { cache: 'no-store' })
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            fetch(`/api/led${ledId}/system/state?check=${Date.now()}`, { cache: 'no-store', signal: controller.signal })
                 .then(response => {
                     if (!response.ok) throw new Error('Network response was not ok');
                     return response.json();
                 })
                 .then(systemState => {
                     ledStates[ledId].enabled = systemState.enabled;
+                    const validModes = temperatureSensorEnabled ? ['manual', 'auto', 'timer', 'toggle', 'temperature'] : ['manual', 'auto', 'timer', 'toggle'];
+                    const mode = typeof systemState.mode === 'string' ? systemState.mode.toLowerCase().trim() : '';
+                    const modeRadio = validModes.includes(mode)
+                        ? document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`)
+                        : null;
+                    const serverModeChanged = lastServerModes[ledId] !== mode;
+                    lastServerModes[ledId] = mode;
+                    if (modeRadio && serverModeChanged) {
+                        modeRadio.checked = true;
+                        document.querySelectorAll(`#led${ledId} .control-panel`).forEach(panel => panel.classList.remove('active'));
+                        document.querySelector(`#${mode}Control_${ledId}`)?.classList.add('active');
+                    }
                     disableToggle.checked = !systemState.enabled;
                     controls.forEach(panel => {
                         panel.style.opacity = systemState.enabled ? '1' : '0.5';
@@ -1366,7 +1440,20 @@
                         statusText.textContent = 'Status: Disabled';
                         return null;
                     }
-                    return fetch(`/api/led${ledId}/status?check=${Date.now()}`, { cache: 'no-store' })
+                    if (temperatureSensorEnabled) {
+                        const tempController = new AbortController();
+                        const tempTimeoutId = setTimeout(() => tempController.abort(), 2000);
+                        fetch(`/api/led${ledId}/temperature?check=${Date.now()}`, { cache: 'no-store', signal: tempController.signal })
+                            .then(response => response.json())
+                            .then(settings => {
+                                const temperature = typeof settings.temperature === 'number' ? settings.temperature : NaN;
+                                if (Number.isFinite(temperature))
+                                    document.querySelector(`#temperatureValue_${ledId}`).textContent = `Temperature: ${temperature.toFixed(1)}°C`;
+                            })
+                            .catch(() => { })
+                            .finally(() => clearTimeout(tempTimeoutId));
+                    }
+                    return fetch(`/api/led${ledId}/status?check=${Date.now()}`, { cache: 'no-store', signal: controller.signal })
                         .then(response => {
                             if (!response.ok) throw new Error('Network response was not ok');
                             return response.text();
@@ -1384,20 +1471,15 @@
                     indicator.className = 'status-indicator off';
                     statusText.textContent = 'Status: Error';
                     toggle.checked = false;  // Default to OFF on error
+                })
+                .finally(() => {
+                    clearTimeout(timeoutId);
+                    ledStatusLocks[ledId] = false;  // Release lock
                 });
 
-            fetch(`/api/led${ledId}/temperature?check=${Date.now()}`, { cache: 'no-store' })
-                .then(response => response.json())
-                .then(settings => {
-                    const temperature = typeof settings.temperature === 'number' ? settings.temperature : NaN;
-                    if (Number.isFinite(temperature))
-                        document.querySelector(`#temperatureValue_${ledId}`).textContent = `Temperature: ${temperature.toFixed(1)}°C`;
-                })
-                .catch(() => { });
         }
 
         // Connection status check
-        let connectionCheckId = 0;
         function checkConnection() {
             const conn = document.getElementById('connectionStatus');
             const checkId = ++connectionCheckId;
@@ -1458,27 +1540,40 @@
         }
 
         function fetchError() {
-            fetch('/api/error')
+            // Prevent overlapping error checks
+            if (errorCheckInFlight) return;
+            errorCheckInFlight = true;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            fetch('/api/error', { signal: controller.signal })
                 .then(response => response.json())
                 .then(result => {
                     if (result.error) alert(`Message: ${result.error}`);
                 })
-                .catch(error => console.error('Error fetching device message:', error));
+                .catch(error => console.error('Error fetching device message:', error))
+                .finally(() => {
+                    clearTimeout(timeoutId);
+                    errorCheckInFlight = false;
+                });
         }
 
         // Replace existing initialization code at the bottom with:
         function initializeApp() {
-            fetchRelayCount().then(() => Promise.all([
-                fetchLEDStates(),
-                fetchLEDNames(),
-                fetchScheduleTimes(),
-                fetchTemperatureSensors()
-            ])).then(() => {
-                // After states are loaded, initialize modes and timers
-                initModesFromServer();
-                relayIds.forEach(ledId => {
-                    setupLED(ledId);
-                    checkTimerState(ledId); // Check timer state for each LED
+            fetchSystemConfig().then(() => {
+                fetchRelayCount().then(() => Promise.all([
+                    fetchLEDStates(),
+                    fetchLEDNames(),
+                    fetchScheduleTimes(),
+                    temperatureSensorEnabled ? fetchTemperatureSensors() : Promise.resolve()
+                ])).then(() => {
+                    applyTemperatureModeAvailability();
+                    initModesFromServer();
+                    relayIds.forEach(ledId => {
+                        setupLED(ledId);
+                        checkTimerState(ledId);
+                    });
                 });
             });
 

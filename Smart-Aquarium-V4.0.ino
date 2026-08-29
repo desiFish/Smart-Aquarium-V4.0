@@ -17,6 +17,7 @@
 
 // Data Storage
 #include <Preferences.h>
+#include <nvs_flash.h>
 
 // Date and time functions using a DS1307 RTC connected via I2C and Wire lib
 #include "RTClib.h"
@@ -47,8 +48,7 @@ RTC_DS3231 rtc;
 WiFiUDP ntpUDP;
 String ntpPoolServer = "pool.ntp.org";
 String customNtpServer;
-long timeZoneOffset = 0;
-String timezoneName = "UTC";
+long timeZoneOffset = 19800;
 NTPClient timeClient(ntpUDP, ntpPoolServer.c_str(), timeZoneOffset);
 bool restartRequested = false;
 unsigned long restartAt = 0;
@@ -56,6 +56,10 @@ bool wifiSetupMode = false;
 bool resetAll = false;
 bool rtcReady = false;
 bool otaActive = false;
+bool useTempSensor = true;
+volatile bool temperatureReadFailureAlarm = false;
+uint8_t temperatureReadFailureCount = 0;
+String temperatureReadFailureNames;
 unsigned long otaProgressMillis = 0;
 String errorBuffer;
 String oledErrorString;
@@ -168,6 +172,13 @@ void drawStatusScreen()
     display.print(WiFi.localIP().toString());
   else
     display.print("Not connected");
+
+  if (temperatureReadFailureAlarm)
+  {
+    display.setCursor(10, (SCREEN_HEIGHT / 2) + 10);
+    display.print("Temp Sen Fail: ");
+    display.println(temperatureReadFailureNames);
+  }
 
   if (restartRequested)
   {
@@ -287,29 +298,71 @@ void addSetupError(const String &section, const String &message)
 void loadTimeSettings()
 {
   preferences.begin("time", false);
-  timezoneName = preferences.getString("timezone", "UTC");
-  ntpPoolServer = preferences.getString("ntpServer", "pool.ntp.org");
+  ntpPoolServer = preferences.getString("ntpServer", "in.pool.ntp.org");
   customNtpServer = preferences.getString("customServer", "");
-  long savedOffset = preferences.getLong("offset", 0);
+  long savedOffset = preferences.getLong("offset", 19800);
   preferences.end();
   timeZoneOffset = savedOffset;
-  Serial.printf("[Time] Loaded timezone=%s, offset=%ld, NTP=%s%s%s%s\n",
-                timezoneName.c_str(), timeZoneOffset, ntpPoolServer.c_str(),
+  Serial.printf("[Time] Loaded offset=%ld, NTP=%s%s%s%s\n",
+                timeZoneOffset, ntpPoolServer.c_str(),
                 ntpPoolServer == "custom" ? " (" : "",
                 ntpPoolServer == "custom" ? customNtpServer.c_str() : "",
                 ntpPoolServer == "custom" ? ")" : "");
 }
 
+void loadSystemConfig()
+{
+  Serial.println("[System] Loading system config...");
+  useTempSensor = true;
+  preferences.begin("system", false);
+  if (preferences.isKey("useTempSensor"))
+  {
+    useTempSensor = preferences.getBool("useTempSensor", true);
+    preferences.end();
+    Serial.printf("[System] Loaded useTempSensor=%s from Preferences\n", useTempSensor ? "true" : "false");
+    return;
+  }
+  preferences.end();
+}
+
+void saveSystemConfig()
+{
+  Serial.println("[System] Saving system config...");
+  Serial.printf("[System] useTempSensor=%s\n", useTempSensor ? "true" : "false");
+
+  preferences.begin("system", false);
+  if (preferences.isKey("useTempSensor") && preferences.getBool("useTempSensor", true) == useTempSensor)
+  {
+    preferences.end();
+    Serial.println("[System] Config unchanged; skipping save");
+    return;
+  }
+  bool saved = preferences.putBool("useTempSensor", useTempSensor);
+  preferences.end();
+  if (saved)
+    Serial.println("[System] Successfully saved system config to Preferences");
+  else
+    Serial.println("[System] ERROR: Could not save system config to Preferences");
+}
+
 void saveTimeSettings()
 {
   preferences.begin("time", false);
-  preferences.putString("timezone", timezoneName);
+  bool unchanged = preferences.getString("ntpServer", "pool.ntp.org") == ntpPoolServer &&
+                   preferences.getString("customServer", "") == customNtpServer &&
+                   preferences.getLong("offset", 19800) == timeZoneOffset;
+  if (unchanged)
+  {
+    preferences.end();
+    Serial.println("[Time] Settings unchanged; skipping save");
+    return;
+  }
   preferences.putString("ntpServer", ntpPoolServer);
   preferences.putString("customServer", customNtpServer);
   preferences.putLong("offset", timeZoneOffset);
   preferences.end();
-  Serial.printf("[Time] Saved timezone=%s, offset=%ld, NTP=%s%s%s%s\n",
-                timezoneName.c_str(), timeZoneOffset, ntpPoolServer.c_str(),
+  Serial.printf("[Time] Saved offset=%ld, NTP=%s%s%s%s\n",
+                timeZoneOffset, ntpPoolServer.c_str(),
                 ntpPoolServer == "custom" ? " (" : "",
                 ntpPoolServer == "custom" ? customNtpServer.c_str() : "",
                 ntpPoolServer == "custom" ? ")" : "");
@@ -324,7 +377,7 @@ bool autoTimeUpdate()
 {
   Serial.println("[RTC] Time update requested");
 
-  if (!rtcReady || !rtc.begin())
+  if (!rtcReady)
   {
     addBufferError("RTC not found. Time update cancelled.");
     Serial.println("[RTC] Update failed: RTC is not available");
@@ -335,6 +388,7 @@ bool autoTimeUpdate()
   {
     addBufferError("WiFi is not connected. RTC time update failed.");
     Serial.println("[RTC] Update failed: WiFi is not connected");
+    Serial.printf("[RTC] WiFi status=%d, SSID=%s, IP=%s\n", WiFi.status(), WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
     return false;
   }
 
@@ -370,7 +424,8 @@ bool autoTimeUpdate()
 
   DateTime now = rtc.now();
   preferences.begin("time", false);
-  preferences.putUChar("lastUpdateDay", now.day());
+  if (preferences.getUChar("lastUpdateDay", 0) != now.day())
+    preferences.putUChar("lastUpdateDay", now.day());
   preferences.end();
 
   char message[80];
@@ -424,6 +479,7 @@ private:
   float targetTemperature = 25.0f;
   float currentTemperature = NAN;
   bool sensorErrorReported = false;
+  bool temperatureReadFailed = false;
 
   String path() const { return "/config/relay" + String(number) + ".json"; }
 
@@ -571,6 +627,8 @@ public:
 
   void setName(const String &value)
   {
+    if (name == value)
+      return;
     Serial.printf("[Relay %u] Name: %s -> %s\n", number, name.c_str(), value.c_str());
     name = value;
     save();
@@ -578,6 +636,8 @@ public:
 
   void setEnabled(bool value)
   {
+    if (enabled == value)
+      return;
     Serial.printf("[Relay %u] %s\n", number, value ? "Enabled" : "Disabled");
     enabled = value;
     if (!enabled)
@@ -593,6 +653,13 @@ public:
       Serial.printf("[Relay %u] ERROR: Invalid mode '%s'\n", number, value.c_str());
       return;
     }
+    if (!useTempSensor && value == "temperature")
+    {
+      Serial.printf("[Relay %u] Temperature mode ignored: sensors are disabled\n", number);
+      return;
+    }
+    if (mode == value)
+      return;
     Serial.printf("[Relay %u] Mode: %s -> %s\n", number, mode.c_str(), value.c_str());
     if (value != "timer")
       stopTimer(true);
@@ -625,6 +692,8 @@ public:
 
   void setSchedule(uint16_t on, uint16_t off)
   {
+    if (onTime == on && offTime == off)
+      return;
     Serial.printf("[Relay %u] Schedule: %04u -> %04u, %04u -> %04u\n", number, onTime, on, offTime, off);
     onTime = on;
     offTime = off;
@@ -636,9 +705,13 @@ public:
     Serial.printf("[Relay %u] Timer request: %s, duration=%lu seconds\n", number, start ? "START" : "STOP", duration);
     if (!start || duration == 0)
     {
+      if (!timerActive && timerDuration == 0)
+        return;
       stopTimer(false);
       return;
     }
+    if (timerActive && timerDuration == duration)
+      return;
     timerDuration = duration;
     timerStarted = millis();
     timerActive = true;
@@ -657,11 +730,14 @@ public:
 
   void setToggle(uint16_t onMinutes, uint16_t offMinutes, bool start)
   {
+    bool nextActive = start && (onMinutes + offMinutes > 0);
+    if (toggleOnMinutes == onMinutes && toggleOffMinutes == offMinutes && toggleActive == nextActive)
+      return;
     Serial.printf("[Relay %u] Toggle mode: %s, ON=%u min, OFF=%u min\n",
                   number, start ? "START" : "STOP", onMinutes, offMinutes);
     toggleOnMinutes = onMinutes;
     toggleOffMinutes = offMinutes;
-    toggleActive = start && (onMinutes + offMinutes > 0);
+    toggleActive = nextActive;
     toggleStarted = millis() / 1000;
     if (toggleActive)
       applyState(true);
@@ -670,8 +746,11 @@ public:
 
   void setTemperatureConfig(const String &address, float target)
   {
-    sensorAddress = address;
-    sensorAddress.toUpperCase();
+    String normalizedAddress = address;
+    normalizedAddress.toUpperCase();
+    if (sensorAddress == normalizedAddress && targetTemperature == target)
+      return;
+    sensorAddress = normalizedAddress;
     targetTemperature = target;
     sensorErrorReported = false;
     Serial.printf("[Relay %u] Temperature control: sensor=%s, target=%.2f C, hysteresis=+/- %.2f C\n",
@@ -679,9 +758,44 @@ public:
     save();
   }
 
+  void handleTemperatureReadFailure()
+  {
+    if (!temperatureReadFailed)
+    {
+      temperatureReadFailed = true;
+      temperatureReadFailureCount++;
+      temperatureReadFailureAlarm = true;
+      if (!temperatureReadFailureNames.isEmpty())
+        temperatureReadFailureNames += ", ";
+      temperatureReadFailureNames += sensorAddress.length() > 4 ? sensorAddress.substring(sensorAddress.length() - 4) : sensorAddress;
+    }
+    currentTemperature = NAN;
+    if (mode != "manual" || state)
+    {
+      mode = "manual";
+      toggleActive = false;
+      timerActive = false;
+      timerDuration = 0;
+      applyState(false);
+      save();
+    }
+  }
+
+  void clearTemperatureReadFailure()
+  {
+    if (!temperatureReadFailed)
+      return;
+    temperatureReadFailed = false;
+    if (temperatureReadFailureCount > 0)
+      temperatureReadFailureCount--;
+    temperatureReadFailureAlarm = temperatureReadFailureCount > 0;
+    if (!temperatureReadFailureAlarm)
+      temperatureReadFailureNames = "";
+  }
+
   void updateTemperature()
   {
-    if (mode != "temperature" || !enabled || sensorAddress.isEmpty())
+    if (!useTempSensor || mode != "temperature" || !enabled || sensorAddress.isEmpty())
       return;
 
     int sensorIndex = -1;
@@ -714,8 +828,10 @@ public:
         Serial.printf("[Relay %u] ERROR: DS18B20 temperature read failed\n", number);
         sensorErrorReported = true;
       }
+      handleTemperatureReadFailure();
       return;
     }
+    clearTemperatureReadFailure();
     sensorErrorReported = false;
 
     float turnOnAt = targetTemperature - TEMPERATURE_HYSTERESIS;
@@ -748,7 +864,6 @@ public:
       timerActive = false;
       toggle();
       timerDuration = 0;
-      save();
     }
 
     if (toggleActive)
@@ -787,9 +902,10 @@ void resetAllSettings()
       LittleFS.remove(relayFile);
   }
 
-  preferences.begin("wifi", false);
-  preferences.clear();
-  preferences.end();
+  esp_err_t eraseResult = nvs_flash_erase();
+  esp_err_t initResult = nvs_flash_init();
+  Serial.printf("[Reset] NVS erase=%s, init=%s\n",
+                esp_err_to_name(eraseResult), esp_err_to_name(initResult));
 
   restartRequested = true;
   restartAt = millis() + 5000;
@@ -823,8 +939,10 @@ void setupWifi()
       String ssid = request->getParam("ssid", true)->value();
       String password = request->getParam("pass", true)->value();
       preferences.begin("wifi", false);
-      bool saved = preferences.putString("ssid", ssid) > 0;
-      saved = preferences.putString("password", password) > 0 && saved;
+      bool changed = preferences.getString("ssid", "") != ssid ||
+            preferences.getString("password", "") != password;
+      bool saved = !changed || preferences.putString("ssid", ssid) > 0;
+      saved = !changed || (preferences.putString("password", password) > 0 && saved);
       preferences.end();
 
       if (saved)
@@ -895,6 +1013,7 @@ void setupRelayApi(uint8_t relayNumber)
               JsonDocument doc;
               doc["success"] = true;
               doc["enabled"] = relays[index]->isEnabled();
+              doc["mode"] = relays[index]->getMode();
               doc["disabled"] = !relays[index]->isEnabled();
               doc["state"] = relays[index]->getState() ? "ON" : "OFF";
               String response = jsonResponse(doc);
@@ -987,6 +1106,14 @@ void setupRelayApi(uint8_t relayNumber)
   server.on((base + "/temperature").c_str(), HTTP_GET, [index](AsyncWebServerRequest *request)
             {
               JsonDocument doc;
+              if (!useTempSensor)
+              {
+                doc["sensor"] = "";
+                doc["targetTemperature"] = 0.0f;
+                doc["temperature"] = nullptr;
+                request->send(200, "application/json", jsonResponse(doc));
+                return;
+              }
               doc["sensor"] = relays[index]->getSensorAddress();
               doc["targetTemperature"] = relays[index]->getTargetTemperature();
               doc["temperature"] = relays[index]->getCurrentTemperature();
@@ -995,6 +1122,12 @@ void setupRelayApi(uint8_t relayNumber)
   server.on((base + "/temperature").c_str(), HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr,
             [index](AsyncWebServerRequest *request, uint8_t *data, size_t length, size_t, size_t)
             {
+              if (!useTempSensor)
+              {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Temperature sensors are disabled\"}");
+                return;
+              }
+
               JsonDocument doc;
               if (deserializeJson(doc, data, length) || !doc["sensor"].is<const char *>() ||
                   !doc["targetTemperature"].is<float>())
@@ -1071,6 +1204,23 @@ void setupServer()
             { request->send(200, "text/plain", "true"); });
   server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", SW_VERSION); });
+  server.on("/api/system/config", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+              JsonDocument doc;
+              doc["useTempSensor"] = useTempSensor;
+              String response = jsonResponse(doc);
+              request->send(200, "application/json", response); });
+  server.on("/api/system/config", HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr, [](AsyncWebServerRequest *request, uint8_t *data, size_t length, size_t, size_t)
+            {
+              JsonDocument input;
+              if (deserializeJson(input, data, length) || !input["useTempSensor"].is<bool>())
+              {
+                request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid config\"}");
+                return;
+              }
+              useTempSensor = input["useTempSensor"].as<bool>();
+              saveSystemConfig();
+              request->send(200, "application/json", "{\"success\":true,\"useTempSensor\":" + String(useTempSensor ? "true" : "false") + "}"); });
   server.on("/api/time-settings", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               JsonDocument doc;
@@ -1078,7 +1228,6 @@ void setupServer()
               servers.add("pool.ntp.org");
               servers.add("in.pool.ntp.org");
               servers.add("custom");
-              doc["timezone"] = timezoneName;
               doc["offset"] = timeZoneOffset;
               doc["ntpServer"] = ntpPoolServer;
               doc["customServer"] = customNtpServer;
@@ -1087,13 +1236,12 @@ void setupServer()
   server.on("/api/time-settings", HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr, [](AsyncWebServerRequest *request, uint8_t *data, size_t length, size_t, size_t)
             {
               JsonDocument input;
-                if (deserializeJson(input, data, length) || !input["timezone"].is<const char *>() ||
-                  !input["ntpServer"].is<const char *>() || !input["offset"].is<long>())
+                if (deserializeJson(input, data, length) || !input["ntpServer"].is<const char *>() ||
+                  !input["offset"].is<long>())
               {
                 request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid time settings\"}");
                 return;
               }
-              String selectedTimezone = input["timezone"].as<String>();
               String selectedServer = input["ntpServer"].as<String>();
               String selectedCustomServer = input["customServer"] | "";
               long selectedOffset = input["offset"].as<long>();
@@ -1104,7 +1252,6 @@ void setupServer()
                 request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid timezone or NTP server\"}");
                 return;
               }
-              timezoneName = selectedTimezone;
               timeZoneOffset = selectedOffset;
               ntpPoolServer = selectedServer;
               customNtpServer = selectedCustomServer;
@@ -1115,7 +1262,6 @@ void setupServer()
               JsonDocument response;
               response["success"] = true;
               response["rtcUpdated"] = updated;
-              response["timezone"] = timezoneName;
               response["offset"] = timeZoneOffset;
               response["message"] = updated ? "Time settings saved and RTC updated." : "Time settings saved, but RTC update failed.";
               String responseText = jsonResponse(response);
@@ -1145,7 +1291,7 @@ void setupServer()
               request->send(200, "application/json", response); });
   server.on("/api/rtctime", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-              if (!rtcReady || !rtc.begin())
+              if (!rtcReady)
               {
                 request->send(503, "text/plain", "RTC Error");
                 return;
@@ -1233,32 +1379,41 @@ void setup(void)
     LittleFS.mkdir("/config");
 
   loadTimeSettings();
+  loadSystemConfig();
 
-  Serial.printf("[DS18B20] Searching on GPIO %u\n", ONE_WIRE_BUS);
-  sensors.begin();
-  sensorCount = min(static_cast<uint8_t>(sensors.getDeviceCount()), static_cast<uint8_t>(8));
-  for (uint8_t i = 0; i < sensorCount; i++)
+  if (useTempSensor)
   {
-    if (sensors.getAddress(sensorAddresses[i], i))
+    Serial.printf("[DS18B20] Searching on GPIO %u\n", ONE_WIRE_BUS);
+    sensors.begin();
+    sensorCount = min(static_cast<uint8_t>(sensors.getDeviceCount()), static_cast<uint8_t>(8));
+    for (uint8_t i = 0; i < sensorCount; i++)
     {
-      Serial.printf("[DS18B20] Sensor %u found: ", i + 1);
-      for (uint8_t byteIndex = 0; byteIndex < 8; byteIndex++)
+      if (sensors.getAddress(sensorAddresses[i], i))
       {
-        if (sensorAddresses[i][byteIndex] < 16)
-          Serial.print("0");
-        Serial.print(sensorAddresses[i][byteIndex], HEX);
+        Serial.printf("[DS18B20] Sensor %u found: ", i + 1);
+        for (uint8_t byteIndex = 0; byteIndex < 8; byteIndex++)
+        {
+          if (sensorAddresses[i][byteIndex] < 16)
+            Serial.print("0");
+          Serial.print(sensorAddresses[i][byteIndex], HEX);
+        }
+        Serial.println();
       }
-      Serial.println();
     }
-  }
-  if (sensorCount == 0)
-  {
-    addSetupError("DS18B20", "No sensors found on GPIO " + String(ONE_WIRE_BUS) + ".");
-    Serial.println("[DS18B20] ERROR: No sensors found");
+    if (sensorCount == 0)
+    {
+      addSetupError("DS18B20", "No temperature sensors found " + String(ONE_WIRE_BUS) + ".");
+      Serial.println("[DS18B20] ERROR: No sensors found");
+    }
+    else
+    {
+      Serial.printf("[DS18B20] %u sensor(s) ready\n", sensorCount);
+    }
   }
   else
   {
-    Serial.printf("[DS18B20] %u sensor(s) ready\n", sensorCount);
+    sensorCount = 0;
+    Serial.println("[DS18B20] Temperature sensors disabled by configuration");
   }
 
   Serial.println("Initializing relays");
@@ -1274,6 +1429,15 @@ void setup(void)
     Serial.println("RTC not found");
     addSetupError("RTC", "not found. Time functions unavailable.");
   }
+  else
+  {
+    Serial.println("RTC initialized successfully");
+    DateTime now = rtc.now();
+    Serial.printf("RTC time: %02d:%02d:%02d %02d/%02d/%04d\n",
+                  now.hour(), now.minute(), now.second(),
+                  now.day(), now.month(), now.year());
+  }
+  Serial.println();
 
   if (!wifiSetupMode)
   {
@@ -1388,6 +1552,12 @@ void loop(void)
 {
   ElegantOTA.loop();
   unsigned long currentMillis = millis();
+  static unsigned long lastTemperatureFailureBeep = 0;
+  if (temperatureReadFailureAlarm && currentMillis - lastTemperatureFailureBeep >= 3000UL)
+  {
+    lastTemperatureFailureBeep = currentMillis;
+    beep(3, 200);
+  }
   if (displayReady)
   {
     if (resetAll || restartRequested || digitalRead(BUTTON_LEFT) == HIGH || digitalRead(BUTTON_RIGHT) == HIGH)

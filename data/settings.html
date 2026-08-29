@@ -163,6 +163,30 @@
             margin-top: 14px;
         }
 
+        .config-container {
+            width: 100%;
+            max-width: 900px;
+            box-sizing: border-box;
+            background: #1e1e1e;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .config-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+            margin-top: 12px;
+            color: #bdbdbd;
+        }
+
+        .config-row input {
+            width: 18px;
+            height: 18px;
+        }
+
         @media (max-width: 600px) {
             .time-settings-grid {
                 grid-template-columns: 1fr;
@@ -301,8 +325,8 @@
         <h3 class="settings-title">TIME AND NTP SETTINGS</h3>
         <div class="time-settings-grid">
             <div class="time-setting">
-                <label for="timezoneInput">Timezone</label>
-                <input id="timezoneInput" type="text" placeholder="UTC+05:30" autocomplete="off">
+                <label for="timezoneInput">Timezone offset</label>
+                <input id="timezoneInput" type="text" placeholder="+5:30" autocomplete="off">
             </div>
             <div class="time-setting">
                 <label for="ntpServerSelect">NTP pool server</label>
@@ -317,6 +341,14 @@
     <div id="relayNameGrid" class="grid-container">
     </div>
 
+    <section class="config-container">
+        <h3 class="settings-title">CONFIGURATIONS</h3>
+        <label class="config-row" for="useTemperatureSensors">
+            <input id="useTemperatureSensors" type="checkbox">
+            <span>Use temperature sensors</span>
+        </label>
+    </section>
+
     <footer class="version-footer">
         <span id="versionInfo">Checking version...</span>
         <span class="copyright">&copy; 2026 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a>. All
@@ -326,6 +358,32 @@
     <script>
         let relayIds = [];
         let timeSettingsDirty = false;
+        const ACTION_DEBOUNCE_MS = 1000;
+        let actionDebounceUntil = 0;
+
+        function applyActionDebounce(buttons) {
+            const now = Date.now();
+            if (now < actionDebounceUntil) {
+                return false;
+            }
+
+            actionDebounceUntil = now + ACTION_DEBOUNCE_MS;
+            buttons.forEach(button => {
+                button.disabled = true;
+                button.style.opacity = '0.6';
+                button.style.pointerEvents = 'none';
+            });
+
+            setTimeout(() => {
+                buttons.forEach(button => {
+                    button.disabled = false;
+                    button.style.opacity = '';
+                    button.style.pointerEvents = '';
+                });
+            }, ACTION_DEBOUNCE_MS);
+
+            return true;
+        }
 
         function generateRelayNameCards(relayCount) {
             const grid = document.getElementById('relayNameGrid');
@@ -368,13 +426,11 @@
         function formatOffset(offset) {
             const sign = offset < 0 ? '-' : '+';
             const absolute = Math.abs(offset);
-            return `UTC${sign}${String(Math.floor(absolute / 3600)).padStart(2, '0')}:${String((absolute % 3600) / 60).padStart(2, '0')}`;
+            return `${sign}${Math.floor(absolute / 3600)}:${String((absolute % 3600) / 60).padStart(2, '0')}`;
         }
 
-        function calculateTimezoneOffset(timezone) {
-            const value = timezone.trim().toUpperCase();
-            if (value === 'UTC' || value === 'GMT') return 0;
-            const match = value.match(/^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$/);
+        function calculateOffset(offsetText) {
+            const match = offsetText.trim().match(/^([+-])(\d{1,2})(?::?(\d{2}))?$/);
             if (!match) return 0;
             const hours = Number(match[2]);
             const minutes = Number(match[3] || 0);
@@ -382,10 +438,8 @@
             return (match[1] === '-' ? -1 : 1) * (hours * 3600 + minutes * 60);
         }
 
-        function isValidTimezone(timezone) {
-            const value = timezone.trim().toUpperCase();
-            if (value === 'UTC' || value === 'GMT') return true;
-            const match = value.match(/^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$/);
+        function isValidOffset(offsetText) {
+            const match = offsetText.trim().match(/^([+-])(\d{1,2})(?::?(\d{2}))?$/);
             if (!match) return false;
             const hours = Number(match[2]);
             const minutes = Number(match[3] || 0);
@@ -400,7 +454,7 @@
                 })
                 .then(settings => {
                     if (timeSettingsDirty) return settings;
-                    document.getElementById('timezoneInput').value = settings.timezone || 'UTC';
+                    document.getElementById('timezoneInput').value = formatOffset(settings.offset || 0);
                     document.getElementById('timeOffset').textContent = `Offset: ${formatOffset(settings.offset || 0)}`;
                     const select = document.getElementById('ntpServerSelect');
                     select.innerHTML = '';
@@ -417,18 +471,21 @@
         }
 
         function saveTimeSettings() {
-            const timezone = document.getElementById('timezoneInput').value.trim();
+            const saveButton = document.getElementById('saveTimeSettings');
+            if (!applyActionDebounce([saveButton])) return;
+
+            const offsetText = document.getElementById('timezoneInput').value.trim();
             const ntpServer = document.getElementById('ntpServerSelect').value;
             const customServer = document.getElementById('customNtpServer').value.trim();
-            const offset = calculateTimezoneOffset(timezone);
-            if (!isValidTimezone(timezone) || (ntpServer === 'custom' && !customServer)) {
-                alert('Enter a valid timezone such as UTC+05:30 and a valid NTP server');
+            const offset = calculateOffset(offsetText);
+            if (!isValidOffset(offsetText) || (ntpServer === 'custom' && !customServer)) {
+                alert('Enter a valid timezone offset such as +5:30 and a valid NTP server');
                 return;
             }
             fetch('/api/time-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ timezone, offset, ntpServer, customServer })
+                body: JSON.stringify({ offset, ntpServer, customServer })
             })
                 .then(response => response.json().then(result => ({ ok: response.ok, result })))
                 .then(({ ok, result }) => {
@@ -490,6 +547,46 @@
                 });
         }
 
+        function fetchSystemConfig() {
+            fetch('/api/system/config')
+                .then(response => response.json())
+                .then(config => {
+                    document.getElementById('useTemperatureSensors').checked = config.useTempSensor !== false;
+                })
+                .catch(error => {
+                    console.error('Error fetching system config:', error);
+                    document.getElementById('useTemperatureSensors').checked = true;
+                });
+        }
+
+        function saveSystemConfig() {
+            const toggle = document.getElementById('useTemperatureSensors');
+            if (!applyActionDebounce([toggle])) return;
+
+            const enabled = toggle.checked;
+            fetch('/api/system/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ useTempSensor: enabled })
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.success) throw new Error('Config update failed');
+                    if (enabled) {
+                        alert('Temperature sensors enabled');
+                    } else {
+                        alert('Temperature sensors disabled');
+                    }
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error saving system config:', error);
+                    alert('Failed to save configuration');
+                });
+        }
+
+        document.getElementById('useTemperatureSensors').addEventListener('change', saveSystemConfig);
+
         async function fetchRtcData() {
             try {
                 const response = await fetch(`/api/rtctime?check=${Date.now()}`, { cache: 'no-store' });
@@ -531,12 +628,15 @@
 
         function setLEDName(ledId) {
             const input = document.getElementById(`nameInput_${ledId}`);
+            const button = input.parentElement.querySelector('.btn-set');
             const newName = input.value.trim();
 
             if (!newName) {
                 alert('Please enter a name');
                 return;
             }
+
+            if (!applyActionDebounce([button])) return;
 
             fetch(`/api/led${ledId}/name`, {
                 method: 'POST',
@@ -557,6 +657,9 @@
 
         // Update time function
         function updateTime() {
+            const button = document.querySelector('.nav-btn:nth-of-type(2)');
+            if (!applyActionDebounce([button])) return;
+
             fetch('/api/time/update', {
                 method: 'POST'
             })
@@ -583,7 +686,9 @@
         document.getElementById('saveTimeSettings').addEventListener('click', saveTimeSettings);
 
         function resetAll() {
+            const button = document.querySelector('.btn-reset');
             if (!confirm('Reset all relay values and WiFi settings to defaults?')) return;
+            if (!applyActionDebounce([button])) return;
 
             fetch('/api/reset', { method: 'POST' })
                 .then(response => {
@@ -598,7 +703,9 @@
         }
 
         function rebootDevice() {
+            const button = document.querySelectorAll('.nav-btn')[2];
             if (!confirm('Reboot the device now?')) return;
+            if (!applyActionDebounce([button])) return;
             fetch('/api/reboot', { method: 'POST' })
                 .then(response => {
                     if (!response.ok) throw new Error('Reboot request failed');
@@ -612,6 +719,7 @@
         }
 
         // Initialize
+        fetchSystemConfig();
         fetchRelayCount().then(() => {
             fetchTimeSettings();
             fetchVersion();
@@ -631,6 +739,7 @@
         setInterval(() => {
             fetchRelayCount();
             fetchTimeSettings();
+            fetchSystemConfig();
             fetchVersion();
             fetchLEDNames();
         }, 10000);
