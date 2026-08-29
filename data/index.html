@@ -761,7 +761,7 @@
                             <div><label>Maintain temperature:</label><input type="number" id="temperatureTarget_${ledId}" class="time-input" step="0.1" min="-55" max="125"></div>
                             <div id="temperatureValue_${ledId}" class="temperature-value">Temperature: --</div>
                             <div class="temperature-warning">Temperature control works only when a heater is connected to this relay.</div>
-                            <button id="setTemperature_${ledId}" class="btn-set">Set Temperature Control</button>
+                            <button id="setTemperature_${ledId}" class="btn-set">Start Temperature Control</button>
                         </div>
                         <div id="manualControl_${ledId}" class="control-panel active">
                             <div class="switch-container"><span class="switch-label">OFF</span><label class="switch"><input type="checkbox" id="ledToggle_${ledId}"><span class="slider"></span></label><span class="switch-label">ON</span></div>
@@ -769,7 +769,7 @@
                         <div id="autoControl_${ledId}" class="control-panel">
                             <div><label>ON Time:</label><input type="time" id="onTime_${ledId}" class="time-input"></div>
                             <div><label>OFF Time:</label><input type="time" id="offTime_${ledId}" class="time-input"></div>
-                            <button id="setTime_${ledId}" class="btn-set">Set Schedule</button>
+                            <button id="setTime_${ledId}" class="btn-set">Start Schedule</button>
                         </div>
                         <div id="timerControl_${ledId}" class="control-panel timer-control">
                             <div class="timer-controls"><label>Timer Duration:</label><select id="timerDuration_${ledId}" onchange="updateTimerToggle(${ledId})"><option value="0">No Timer</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option><option value="2700">45 minutes</option></select></div>
@@ -1157,6 +1157,27 @@
             }
 
             document.querySelector(`#setTemperature_${ledId}`).onclick = () => {
+                const temperatureButton = document.querySelector(`#setTemperature_${ledId}`);
+                if (temperatureButton.textContent === 'Stop Temperature Control') {
+                    fetch(`/api/led${ledId}/temperature/stop`, { method: 'POST' })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Failed to stop temperature control');
+                            return response.json();
+                        })
+                        .then(() => {
+                            temperatureButton.textContent = 'Start Temperature Control';
+                            led.modes.forEach(mode => mode.checked = mode.value === 'manual');
+                            Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
+                            led.panels.manual.classList.add('active');
+                            updateLEDStatus(ledId);
+                        })
+                        .catch(error => {
+                            console.error(error);
+                            alert('Failed to stop temperature control');
+                        });
+                    return;
+                }
+
                 const sensor = led.temperatureSensor.value;
                 const targetTemperature = parseFloat(led.temperatureTarget.value);
                 if (!sensor || Number.isNaN(targetTemperature)) {
@@ -1176,6 +1197,7 @@
                         led.modes.forEach(mode => mode.checked = mode.value === 'temperature');
                         Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                         led.panels.temperature.classList.add('active');
+                        document.querySelector(`#setTemperature_${ledId}`).textContent = 'Stop Temperature Control';
                         alert('Temperature control saved');
                     })
                     .catch(error => {
@@ -1236,6 +1258,26 @@
             setTimeBtn.onclick = () => {
                 if (!ledStates[ledId].enabled) return;
 
+                if (setTimeBtn.textContent === 'Stop Schedule') {
+                    fetch(`/api/led${ledId}/schedule/stop`, { method: 'POST' })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Failed to stop schedule');
+                            return response.json();
+                        })
+                        .then(() => {
+                            setTimeBtn.textContent = 'Start Schedule';
+                            led.modes.forEach(mode => mode.checked = mode.value === 'manual');
+                            Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
+                            led.panels.manual.classList.add('active');
+                            updateLEDStatus(ledId);
+                        })
+                        .catch(error => {
+                            console.error(error);
+                            alert('Failed to stop schedule');
+                        });
+                    return;
+                }
+
                 const onTime = document.querySelector(`#onTime_${ledId}`).value;
                 const offTime = document.querySelector(`#offTime_${ledId}`).value;
 
@@ -1257,6 +1299,7 @@
                         });
                     })
                     .then(() => {
+                        setTimeBtn.textContent = 'Stop Schedule';
                         alert('Schedule set successfully!');
                     })
                     .catch(error => {
@@ -1428,6 +1471,12 @@
                         modeRadio.checked = true;
                         document.querySelectorAll(`#led${ledId} .control-panel`).forEach(panel => panel.classList.remove('active'));
                         document.querySelector(`#${mode}Control_${ledId}`)?.classList.add('active');
+                        document.querySelector(`#setTemperature_${ledId}`).textContent = mode === 'temperature'
+                            ? 'Stop Temperature Control'
+                            : 'Start Temperature Control';
+                        document.querySelector(`#setTime_${ledId}`).textContent = mode === 'auto'
+                            ? 'Stop Schedule'
+                            : 'Start Schedule';
                     }
                     disableToggle.checked = !systemState.enabled;
                     controls.forEach(panel => {

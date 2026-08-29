@@ -30,13 +30,14 @@
 
 #define NUM_RELAYS 4
 #define ONE_WIRE_BUS 4
-#define TEMPERATURE_HYSTERESIS 1.0f
+#define TEMPERATURE_HYSTERESIS 0.5f
 #define LED_PIN 19
 #define BUZZER_PIN 18
 #define BUTTON_LEFT 36
 #define BUTTON_RIGHT 39
-const uint8_t RELAY_PINS[NUM_RELAYS] = {26, 27, 14, 12};
-#define SW_VERSION "v0.4.0-beta"
+#define RELAY_ACTIVE_LOW true
+const uint8_t RELAY_PINS[NUM_RELAYS] = {32, 33, 25, 26};
+#define SW_VERSION "v0.4.1-beta"
 
 Adafruit_NeoPixel statusLed(1, LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -529,12 +530,13 @@ private:
     if (state != nextState)
       Serial.printf("[Relay %u] State: %s -> %s\n", number, state ? "ON" : "OFF", nextState ? "ON" : "OFF");
     state = nextState;
-    digitalWrite(pin, state ? HIGH : LOW);
+    digitalWrite(pin, (state ^ RELAY_ACTIVE_LOW) ? HIGH : LOW);
   }
 
 public:
   Relay(uint8_t relayPin, uint8_t relayNumber) : pin(relayPin), number(relayNumber)
   {
+    digitalWrite(pin, RELAY_ACTIVE_LOW ? HIGH : LOW);
     pinMode(pin, OUTPUT);
     name = "Relay " + String(number);
     load();
@@ -756,6 +758,18 @@ public:
     Serial.printf("[Relay %u] Temperature control: sensor=%s, target=%.2f C, hysteresis=+/- %.2f C\n",
                   number, sensorAddress.c_str(), targetTemperature, TEMPERATURE_HYSTERESIS);
     save();
+  }
+
+  void stopTemperatureControl()
+  {
+    bool changed = mode != "manual" || state || toggleActive || timerActive || timerDuration != 0;
+    mode = "manual";
+    toggleActive = false;
+    timerActive = false;
+    timerDuration = 0;
+    applyState(false);
+    if (changed)
+      save();
   }
 
   void handleTemperatureReadFailure()
@@ -1050,6 +1064,14 @@ void setupRelayApi(uint8_t relayNumber)
             {
               relays[index]->toggle();
               request->send(200, "application/json", relays[index]->getState() ? "{\"state\":\"ON\"}" : "{\"state\":\"OFF\"}"); });
+  server.on((base + "/temperature/stop").c_str(), HTTP_POST, [index](AsyncWebServerRequest *request)
+            {
+              relays[index]->stopTemperatureControl();
+              request->send(200, "application/json", "{\"success\":true,\"mode\":\"manual\",\"state\":\"OFF\"}"); });
+  server.on((base + "/schedule/stop").c_str(), HTTP_POST, [index](AsyncWebServerRequest *request)
+            {
+              relays[index]->stopTemperatureControl();
+              request->send(200, "application/json", "{\"success\":true,\"mode\":\"manual\",\"state\":\"OFF\"}"); });
 
   server.on((base + "/schedule").c_str(), HTTP_GET, [index](AsyncWebServerRequest *request)
             {
