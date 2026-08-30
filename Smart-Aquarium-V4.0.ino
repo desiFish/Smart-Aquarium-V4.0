@@ -1,3 +1,13 @@
+/*
+Smart Aquarium V4.0 - ESP32-based aquarium controller with web dashboard, OTA updates, and temperature monitoring.
+Part of Project MINA: M-icrocontroller_based I-nteractive N-etworked A-quarium
+
+License: GNU General Public License v3.0 (GPL-3.0)
+See LICENSE file for details.
+
+Author: desiFish (https://github.com/desiFish, and the open-source community
+*/
+
 // For basic ESP32 stuff like wifi, OTA Update and Wifi Manager Server
 #include <WiFi.h>
 #include <AsyncTCP.h>
@@ -6,6 +16,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
+// For DS18B20 temperature sensors
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
@@ -25,7 +36,7 @@
 #include <WiFiUdp.h>
 #include <time.h>
 
-// RGB LED (2812B)
+// RGB LED (WS2812B)
 #include <Adafruit_NeoPixel.h>
 
 /** Number of relay channels managed by the aquarium controller. */
@@ -52,7 +63,7 @@ const uint8_t RELAY_PINS[NUM_RELAYS] = {32, 33, 25, 26};
 #define SW_VERSION "v0.4.2-beta"
 
 /** RGB status LED driver instance. */
-Adafruit_NeoPixel statusLed(1, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel statusLed(/*No. of LEDs*/ 1, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 /** Debounce time in milliseconds for button polling. */
 const uint8_t buttonDebounceMs = 30;
