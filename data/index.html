@@ -155,17 +155,12 @@
             text-align: center;
         }
 
-        #autoControl_1,
-        #autoControl_2,
-        #autoControl_3,
-        #autoControl_4 {
+        /* Auto Control Styles - Scalable for any relay count */
+        [id^="autoControl_"] {
             text-align: center;
         }
 
-        #autoControl_1 div,
-        #autoControl_2 div,
-        #autoControl_3 div,
-        #autoControl_4 div {
+        [id^="autoControl_"]>div {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -173,17 +168,12 @@
             margin-bottom: 10px;
         }
 
-        #autoControl_1 label,
-        #autoControl_2 label,
-        #autoControl_3 label,
-        #autoControl_4 label {
+        [id^="autoControl_"] label {
             min-width: 80px;
             text-align: right;
         }
 
-        .time-input {
-            flex: 0 1 120px;
-        }
+
 
         #autoControl div,
         #timerControl div {
@@ -194,13 +184,23 @@
             margin-bottom: 10px;
         }
 
+        [id^="toggleControl_"] .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 0;
+            margin-top: 0.8rem;
+        }
+
+
+
         select {
             background: #333;
             color: white;
             border: none;
             padding: 8px;
             border-radius: 4px;
-            margin: 5px;
             width: 120px;
             margin: 0;
         }
@@ -336,8 +336,9 @@
             border-radius: 12px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
             width: 100%;
-            max-width: 400px;
             box-sizing: border-box;
+            max-width: none;
+            margin: 0;
         }
 
         .page-title {
@@ -406,11 +407,6 @@
             max-width: 900px;
         }
 
-        .controls-container {
-            max-width: none;
-            margin: 0;
-        }
-
         .led-title {
             color: #2196F3;
             font-size: 1.2rem;
@@ -438,17 +434,12 @@
             }
         }
 
-        #timerControl_1,
-        #timerControl_2,
-        #timerControl_3,
-        #timerControl_4 {
+        /* Timer Control Styles - Scalable for any relay count */
+        [id^="timerControl_"] {
             text-align: center;
         }
 
-        #timerControl_1 div,
-        #timerControl_2 div,
-        #timerControl_3 div,
-        #timerControl_4 div {
+        [id^="timerControl_"]>div {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -456,12 +447,98 @@
             margin-bottom: 10px;
         }
 
-        #timerControl_1 label,
-        #timerControl_2 label,
-        #timerControl_3 label,
-        #timerControl_4 label {
-
+        [id^="timerControl_"] label {
             text-align: right;
+        }
+
+        /* Toggle Control Styles - Scalable for any relay count */
+        [id^="toggleControl_"] {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .toggle-input-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .toggle-input-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .toggle-input-container label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 0.25rem;
+        }
+
+        .toggle-input-container input {
+            width: 100px;
+            height: 36px;
+            padding: 6px 8px;
+            flex: 0 0 auto;
+        }
+
+        [id^="toggleControl_"] .switch-container,
+        .timer-switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .timer-switch-container {
+            margin-bottom: 0;
+            margin-top: 1rem;
+        }
+
+        .toggle-timer,
+        .timer-animation {
+            display: none !important;
+        }
+
+        .toggle-timer.active,
+        .timer-animation.active {
+            display: block !important;
+        }
+
+        .toggle-timer {
+            font-size: 1.2rem;
+            color: #2196F3;
+            margin: 1rem 0;
+            padding: 0.5rem;
+            background: #1e1e1e;
+            border-radius: 4px;
+        }
+
+        .toggle-countdown,
+        .timer-countdown {
+            font-size: 1.2rem;
+            color: #2196F3;
+            text-align: center;
+        }
+
+        @media (max-width: 480px) {
+
+            [id^="autoControl_"]>div,
+            .toggle-input-group {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .toggle-input-container input,
+            [id^="autoControl_"] input {
+                width: 120px;
+            }
         }
 
         select {
@@ -474,49 +551,7 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            margin: 1rem auto;
-            width: auto;
-        }
-
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-            flex: none;
-        }
-
-        .switch-label {
-            color: #888;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            flex: none;
-        }
-
-        /* Timer Control Styles */
-        .timer-switch-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
             margin-top: 1rem;
-        }
-
-        .timer-switch-container .switch {
-            width: 60px;
-            height: 34px;
-            margin: 0;
-            flex: none;
-        }
-
-        .timer-switch-container .switch-label {
-            color: #888;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            flex: none;
-            margin: 0;
         }
 
         .version-footer {
@@ -630,22 +665,7 @@
             transform: translateY(-1px);
         }
 
-        /* Timer Animation Styles */
-        .timer-animation {
-            display: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .timer-animation.active {
-            display: block;
-            opacity: 1;
-        }
-
         .timer-countdown {
-            font-size: 1.2rem;
-            color: #2196F3;
-            text-align: center;
             margin: 1rem 0;
         }
 
@@ -809,6 +829,8 @@
                             <label for="modeManual_${ledId}">Manual</label>
                             <input type="radio" id="modeAuto_${ledId}" name="mode_${ledId}" value="auto">
                             <label for="modeAuto_${ledId}">Auto</label>
+                            <input type="radio" id="modeToggle_${ledId}" name="mode_${ledId}" value="toggle">
+                            <label for="modeToggle_${ledId}">Toggle</label>
                             <input type="radio" id="modeTemperature_${ledId}" name="mode_${ledId}" value="temperature">
                             <label for="modeTemperature_${ledId}">Temperature</label>
                             <input type="radio" id="modeTimer_${ledId}" name="mode_${ledId}" value="timer">
@@ -828,6 +850,20 @@
                             <div><label>ON Time:</label><input type="time" id="onTime_${ledId}" class="time-input"></div>
                             <div><label>OFF Time:</label><input type="time" id="offTime_${ledId}" class="time-input"></div>
                             <button id="setTime_${ledId}" class="btn-set">Start Schedule</button>
+                        </div>
+                        <div id="toggleControl_${ledId}" class="control-panel">
+                            <div class="toggle-input-group">
+                                <div class="toggle-input-container">
+                                    <label>ON Duration (mins)</label>
+                                    <input type="number" id="toggleOnMinutes_${ledId}" class="time-input" min="1" max="1440" placeholder="20">
+                                </div>
+                                <div class="toggle-input-container">
+                                    <label>OFF Duration (mins)</label>
+                                    <input type="number" id="toggleOffMinutes_${ledId}" class="time-input" min="1" max="1440" placeholder="10">
+                                </div>
+                            </div>
+                            <div class="switch-container"><span class="switch-label">OFF</span><label class="switch"><input type="checkbox" id="toggleSwitch_${ledId}"><span class="slider"></span></label><span class="switch-label">ON</span></div>
+                            <div id="toggleAnimation_${ledId}" class="toggle-timer"><div id="toggleCountdown_${ledId}" class="toggle-countdown">Next ON in 00:00</div></div>
                         </div>
                         <div id="timerControl_${ledId}" class="control-panel timer-control">
                             <div class="timer-controls"><label>Timer Duration:</label><select id="timerDuration_${ledId}" onchange="updateTimerToggle(${ledId})"><option value="0">No Timer</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option><option value="2700">45 minutes</option></select></div>
@@ -944,12 +980,12 @@
                         // Validate mode
                         const validModes = (
                             temperatureSensorEnabled && rtcAvailable
-                                ? ['manual', 'auto', 'timer', 'temperature']
+                                ? ['manual', 'auto', 'timer', 'toggle', 'temperature']
                                 : temperatureSensorEnabled
-                                    ? ['manual', 'timer', 'temperature']
+                                    ? ['manual', 'timer', 'toggle', 'temperature']
                                     : rtcAvailable
-                                        ? ['manual', 'auto', 'timer']
-                                        : ['manual', 'timer']
+                                        ? ['manual', 'auto', 'timer', 'toggle']
+                                        : ['manual', 'timer', 'toggle']
                         );
                         mode = mode.toLowerCase().trim();
 
@@ -991,12 +1027,12 @@
                         mode = mode.toLowerCase().trim();
                         const validModes = (
                             temperatureSensorEnabled && rtcAvailable
-                                ? ['manual', 'auto', 'timer', 'temperature']
+                                ? ['manual', 'auto', 'timer', 'toggle', 'temperature']
                                 : temperatureSensorEnabled
-                                    ? ['manual', 'timer', 'temperature']
+                                    ? ['manual', 'timer', 'toggle', 'temperature']
                                     : rtcAvailable
-                                        ? ['manual', 'auto', 'timer']
-                                        : ['manual', 'timer']
+                                        ? ['manual', 'auto', 'timer', 'toggle']
+                                        : ['manual', 'timer', 'toggle']
                         );
                         if (!validModes.includes(mode)) mode = 'manual';
 
@@ -1014,6 +1050,10 @@
                         // If timer mode, check timer state
                         if (mode === 'timer') {
                             checkTimerState(ledId);
+                        }
+                        // If toggle mode, check toggle state
+                        if (mode === 'toggle') {
+                            checkToggleState(ledId);
                         }
                     })
                     .catch(error => console.error(`Error loading mode for LED ${ledId}:`, error));
@@ -1051,6 +1091,100 @@
 
         // active timer tracking
         const activeTimers = {};
+        const activeToggles = {};
+
+        function showToggleAnimation(ledId) {
+            const elements = {
+                animation: document.querySelector(`#toggleAnimation_${ledId}`),
+                countdown: document.querySelector(`#toggleCountdown_${ledId}`),
+                inputGroup: document.querySelector(`#toggleControl_${ledId} .toggle-input-group`),
+                switchContainer: document.querySelector(`#toggleControl_${ledId} .switch-container`)
+            };
+
+            if (activeToggles[ledId]) {
+                clearInterval(activeToggles[ledId]);
+            }
+
+            // Hide inputs and show animation
+            elements.inputGroup.style.display = 'none';
+            elements.animation.classList.add('active');
+            elements.switchContainer.style.display = 'flex';
+
+            function updateToggleDisplay() {
+                fetch(`/api/led${ledId}/toggle-mode/state`)
+                    .then(response => response.json())
+                    .then(state => {
+                        if (!state.active || !state.remaining) {
+                            hideToggleAnimation(ledId);
+                            return;
+                        }
+
+                        const minutes = Math.floor(state.remaining / 60);
+                        const seconds = state.remaining % 60;
+                        const nextAction = state.state === 'ON' ? 'Next OFF' : 'Next ON';
+                        elements.countdown.textContent =
+                            `${nextAction} in ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    })
+                    .catch(() => hideToggleAnimation(ledId));
+            }
+
+            updateToggleDisplay();
+            activeToggles[ledId] = setInterval(updateToggleDisplay, 1000);
+        }
+
+        function hideToggleAnimation(ledId) {
+            if (activeToggles[ledId]) {
+                clearInterval(activeToggles[ledId]);
+                activeToggles[ledId] = null;
+            }
+
+            const elements = {
+                animation: document.querySelector(`#toggleAnimation_${ledId}`),
+                inputGroup: document.querySelector(`#toggleControl_${ledId} .toggle-input-group`),
+                switchContainer: document.querySelector(`#toggleControl_${ledId} .switch-container`),
+                countdown: document.querySelector(`#toggleCountdown_${ledId}`),
+                toggleSwitch: document.querySelector(`#toggleSwitch_${ledId}`)
+            };
+
+            // Reset all toggle controls
+            elements.animation.classList.remove('active');
+            elements.inputGroup.style.display = 'flex';
+            elements.switchContainer.style.display = 'flex';
+            elements.countdown.textContent = 'Next ON in 00:00';
+            elements.toggleSwitch.checked = false;
+        }
+
+        function checkToggleState(ledId) {
+            fetch(`/api/led${ledId}/toggle-mode/state`)
+                .then(response => response.json())
+                .then(state => {
+                    // If no state or not active, ensure controls are visible and reset
+                    if (!state || !state.active) {
+                        hideToggleAnimation(ledId);
+                        return;
+                    }
+
+                    // Switch to toggle mode and show panel
+                    const modeSelector = document.querySelector(`#modeToggle_${ledId}`);
+                    const togglePanel = document.querySelector(`#toggleControl_${ledId}`);
+
+                    modeSelector.checked = true;
+                    document.querySelectorAll(`#led${ledId} .control-panel`).forEach(p => p.classList.remove('active'));
+                    togglePanel.classList.add('active');
+
+                    // Set on/off minutes and toggle
+                    const onMinutesInput = document.querySelector(`#toggleOnMinutes_${ledId}`);
+                    const offMinutesInput = document.querySelector(`#toggleOffMinutes_${ledId}`);
+                    const toggleSwitch = document.querySelector(`#toggleSwitch_${ledId}`);
+                    onMinutesInput.value = state.onMinutes;
+                    offMinutesInput.value = state.offMinutes;
+                    toggleSwitch.checked = true;
+
+                    // Show animation
+                    showToggleAnimation(ledId);
+                })
+                .catch(error => console.error('Error checking toggle state:', error));
+        }
 
         function showTimerAnimation(ledId) {
             const elements = {
@@ -1164,8 +1298,11 @@
                         if (mode.trim().toLowerCase() === 'timer') {
                             checkTimerState(ledId);
                         }
+                        if (mode.trim().toLowerCase() === 'toggle') {
+                            checkToggleState(ledId);
+                        }
                     })
-                    .catch(error => console.error('Error checking timer mode:', error));
+                    .catch(error => console.error('Error checking mode:', error));
             });
         }
 
@@ -1209,12 +1346,16 @@
                     manual: document.querySelector(`#manualControl_${ledId}`),
                     auto: document.querySelector(`#autoControl_${ledId}`),
                     timer: document.querySelector(`#timerControl_${ledId}`),
+                    toggle: document.querySelector(`#toggleControl_${ledId}`),
                     temperature: document.querySelector(`#temperatureControl_${ledId}`)
                 },
                 disableToggle: document.querySelector(`#disableToggle_${ledId}`),
                 allControls: document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`),
                 timerDuration: document.querySelector(`#timerDuration_${ledId}`),
                 timerSwitch: document.querySelector(`#timerSwitchContainer_${ledId}`),
+                toggleSwitch: document.querySelector(`#toggleSwitch_${ledId}`),
+                toggleOnMinutes: document.querySelector(`#toggleOnMinutes_${ledId}`),
+                toggleOffMinutes: document.querySelector(`#toggleOffMinutes_${ledId}`),
                 temperatureSensor: document.querySelector(`#temperatureSensor_${ledId}`),
                 temperatureTarget: document.querySelector(`#temperatureTarget_${ledId}`),
                 temperatureValue: document.querySelector(`#temperatureValue_${ledId}`)
@@ -1451,15 +1592,85 @@
                     });
             };
 
+            // Toggle mode handler
+            const toggleSwitch = document.querySelector(`#toggleSwitch_${ledId}`);
+            toggleSwitch.onclick = () => {
+                if (!ledStates[ledId].enabled) return;
+
+                // If toggle is already running, just stop it
+                if (activeToggles[ledId]) {
+                    fetch(`/api/led${ledId}/toggle-mode`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ onMinutes: 0, offMinutes: 0, start: false })
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Failed to stop toggle');
+                            return response.json();
+                        })
+                        .then(() => {
+                            hideToggleAnimation(ledId);
+                            toggleSwitch.checked = false;
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            toggleSwitch.checked = true;
+                        });
+                    return;
+                }
+
+                // Otherwise start a new toggle
+                const onMinutes = parseInt(document.querySelector(`#toggleOnMinutes_${ledId}`).value);
+                const offMinutes = parseInt(document.querySelector(`#toggleOffMinutes_${ledId}`).value);
+
+                if (!onMinutes || !offMinutes || onMinutes < 1 || offMinutes < 1) {
+                    alert('Please enter valid ON and OFF durations (minimum 1 minute)');
+                    toggleSwitch.checked = false;
+                    return;
+                }
+
+                fetch(`/api/led${ledId}/mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'toggle' })
+                })
+                    .then(() => {
+                        return fetch(`/api/led${ledId}/toggle-mode`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ onMinutes, offMinutes, start: true })
+                        });
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Failed to start toggle');
+                        return response.json();
+                    })
+                    .then(() => {
+                        showToggleAnimation(ledId);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to start toggle mode');
+                        toggleSwitch.checked = false;
+                    });
+            };
+
             // Modify disable toggle handler
             led.disableToggle.onclick = () => {
                 ledStates[ledId].enabled = !led.disableToggle.checked;
 
-                // Stop any active timer animation
-                if (!ledStates[ledId].enabled && activeTimers[ledId]) {
-                    hideTimerAnimation(ledId);
-                    const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
-                    timerToggle.checked = false;
+                // Stop any active timer or toggle animation
+                if (!ledStates[ledId].enabled) {
+                    if (activeTimers[ledId]) {
+                        hideTimerAnimation(ledId);
+                        const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
+                        timerToggle.checked = false;
+                    }
+                    if (activeToggles[ledId]) {
+                        hideToggleAnimation(ledId);
+                        const toggleSwitch = document.querySelector(`#toggleSwitch_${ledId}`);
+                        toggleSwitch.checked = false;
+                    }
                 }
 
                 // Update UI state
@@ -1720,6 +1931,7 @@
                         relayIds.forEach(ledId => {
                             setupLED(ledId);
                             checkTimerState(ledId);
+                            checkToggleState(ledId);
                         });
                     });
                 });

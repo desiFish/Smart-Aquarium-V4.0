@@ -1006,7 +1006,15 @@ public:
     Serial.printf("[Relay %u] %s\n", number, value ? "Enabled" : "Disabled");
     enabled = value;
     if (!enabled)
+    {
       stopTimer(false);
+      if (toggleActive)
+      {
+        toggleActive = false;
+        toggleStarted = 0;
+        applyState(false);
+      }
+    }
     applyState(enabled && state);
     save();
   }
@@ -1328,6 +1336,16 @@ public:
    */
   void update()
   {
+    if (!enabled)
+    {
+      if (toggleActive)
+      {
+        toggleActive = false;
+        toggleStarted = 0;
+      }
+      return;
+    }
+
     if (timerActive && remainingTimer() == 0)
     {
       Serial.printf("[Relay %u] Timer expired, toggling output\n", number);
