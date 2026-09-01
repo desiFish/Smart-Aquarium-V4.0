@@ -189,7 +189,7 @@ void markDisplayActivity()
  */
 void drawWiFiSignal(uint8_t signalBars)
 {
-  const int xPositions[5] = {96, 102, 108, 114, 120};
+  const int xPositions[5] = {100, 106, 112, 118, 124};
   const int y = 2;
   const int radius = 2;
 
@@ -335,16 +335,6 @@ void drawStatusScreen()
     return;
   }
 
-  if (resetAll)
-  {
-    display.setCursor(8, 4);
-    display.println("Resetting All");
-    display.setCursor(8, 18);
-    display.println("Please wait");
-    display.display();
-    return;
-  }
-
   if (WiFi.getMode() == WIFI_AP)
   {
     display.setCursor(8, 4);
@@ -357,6 +347,18 @@ void drawStatusScreen()
     display.println(WiFi.softAPIP().toString());
     display.display();
     return;
+  }
+
+  display.setTextSize(0);
+  display.setFont(NULL);
+  display.setTextColor(SH110X_WHITE);
+  if (rtcReady)
+  {
+    DateTime now = rtc.now();
+    char timeText[6];
+    snprintf(timeText, sizeof(timeText), "%02d:%02d", now.hour(), now.minute());
+    display.setCursor(2, 2);
+    display.print(timeText);
   }
 
   uint8_t signalBars = 0;
@@ -519,9 +521,17 @@ void checkI2CHealth()
 void loadTimeSettings()
 {
   preferences.begin("time", false);
+
+  if (!preferences.isKey("ntpServer"))
+    preferences.putString("ntpServer", "in.pool.ntp.org");
+  if (!preferences.isKey("customServer"))
+    preferences.putString("customServer", "");
+  if (!preferences.isKey("offset"))
+    preferences.putLong("offset", 19800L);
+
   ntpPoolServer = preferences.getString("ntpServer", "in.pool.ntp.org");
   customNtpServer = preferences.getString("customServer", "");
-  long savedOffset = preferences.getLong("offset", 19800);
+  long savedOffset = preferences.getLong("offset", 19800L);
   preferences.end();
   timeZoneOffset = savedOffset;
   Serial.printf("[Time] Loaded offset=%ld, NTP=%s%s%s%s\n",
@@ -835,8 +845,8 @@ public:
    */
   Relay(uint8_t relayPin, uint8_t relayNumber) : pin(relayPin), number(relayNumber)
   {
-    digitalWrite(pin, RELAY_ACTIVE_LOW ? HIGH : LOW);
     pinMode(pin, OUTPUT);
+    digitalWrite(pin, RELAY_ACTIVE_LOW ? HIGH : LOW);
     name = "Relay " + String(number);
     load();
     applyState(state);
