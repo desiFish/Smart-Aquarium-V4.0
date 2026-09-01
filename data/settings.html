@@ -115,7 +115,9 @@
             max-width: 600px;
             margin-bottom: 1rem;
             display: flex;
+            flex-wrap: wrap;
             justify-content: center;
+            gap: 8px;
             padding: 8px;
             background: #1e1e1e;
             border-radius: 12px;
@@ -190,6 +192,17 @@
         @media (max-width: 600px) {
             .time-settings-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .nav-btn,
+            .btn-reset {
+                width: 100%;
+                margin-left: 0 !important;
             }
         }
 
@@ -283,14 +296,19 @@
             background: #b71c1c;
             color: white;
             border: none;
-            padding: 8px 20px;
-            border-radius: 4px;
+            padding: 10px 24px;
+            border-radius: 6px;
             cursor: pointer;
-            margin-top: 10px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            margin-top: 0;
         }
 
         .btn-reset:hover {
             background: #d32f2f;
+            transform: translateY(-1px);
         }
 
         @media (max-width: 768px) {
@@ -316,9 +334,9 @@
 
     <nav class="navbar">
         <button class="nav-btn" onclick="window.location.href='index.html'">Back</button>
-        <button class="nav-btn" style="margin-left: 10px;" onclick="updateTime()">Update Time</button>
-        <button class="nav-btn" style="margin-left: 10px;" onclick="rebootDevice()">Reboot</button>
-        <button class="btn-reset" style="margin: 0 0 0 10px;" onclick="resetAll()">Reset All</button>
+        <button class="nav-btn" onclick="updateTime()">Update Time</button>
+        <button class="nav-btn" onclick="rebootDevice()">Reboot</button>
+        <button class="btn-reset" onclick="resetAll()">Reset All</button>
     </nav>
 
     <section class="time-settings-container">
@@ -472,16 +490,23 @@
 
         function saveTimeSettings() {
             const saveButton = document.getElementById('saveTimeSettings');
-            if (!applyActionDebounce([saveButton])) return;
-
             const offsetText = document.getElementById('timezoneInput').value.trim();
             const ntpServer = document.getElementById('ntpServerSelect').value;
             const customServer = document.getElementById('customNtpServer').value.trim();
             const offset = calculateOffset(offsetText);
+
             if (!isValidOffset(offsetText) || (ntpServer === 'custom' && !customServer)) {
                 alert('Enter a valid timezone offset such as +5:30 and a valid NTP server');
                 return;
             }
+
+            const targetServer = ntpServer === 'custom' ? customServer : ntpServer;
+            if (!confirm(`Save these time settings?\n\nTimezone offset: ${formatOffset(offset)}\nNTP server: ${targetServer}`)) {
+                return;
+            }
+
+            if (!applyActionDebounce([saveButton])) return;
+
             fetch('/api/time-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

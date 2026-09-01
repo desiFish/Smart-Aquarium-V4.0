@@ -5,7 +5,7 @@ Part of Project MINA: M-icrocontroller_based I-nteractive N-etworked A-quarium
 License: GNU General Public License v3.0 (GPL-3.0)
 See LICENSE file for details.
 
-Author: desiFish (https://github.com/desiFish, and the open-source community
+Author: desiFish (https://github.com/desiFish), and the open-source community
 */
 
 // For basic ESP32 stuff like wifi, OTA Update and Wifi Manager Server
@@ -60,7 +60,7 @@ Author: desiFish (https://github.com/desiFish, and the open-source community
 /** Physical relay output pins in board order. */
 const uint8_t RELAY_PINS[NUM_RELAYS] = {32, 33, 25, 26};
 /** Current firmware version string exposed by the web API. */
-#define SW_VERSION "v0.4.2-beta"
+#define SW_VERSION "v0.4.3-beta"
 
 /** RGB status LED driver instance. */
 Adafruit_NeoPixel statusLed(/*No. of LEDs*/ 1, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -98,7 +98,7 @@ bool rtcReady = false;
 bool rtcFailureReported = false;
 /** Prevents repeated OLED alarm notifications while the OLED remains unhealthy. */
 bool oledFailureReported = false;
-/** True when the system should make a reboot or OTA action to persist changes. */
+/** Configuration option for using DS18B20 */
 bool useTempSensor = true;
 /** Global alarm latch used for repeated buzzer warnings while sensor faults remain active. */
 volatile bool temperatureReadFailureAlarm = false;
@@ -639,9 +639,11 @@ bool autoTimeUpdate()
   Serial.printf("[RTC] Updating from NTP server: %s, offset: %ld seconds\n", serverName.c_str(), timeZoneOffset);
   timeClient.setPoolServerName(serverName.c_str());
   timeClient.setTimeOffset(timeZoneOffset);
+  timeClient.setUpdateInterval(15000UL);
   timeClient.begin();
 
-  if (!timeClient.update() || !timeClient.isTimeSet())
+  // Explicit user-triggered syncs must not be blocked by the NTP client's internal throttle.
+  if (!timeClient.forceUpdate() || !timeClient.isTimeSet())
   {
     addBufferError("NTP update failed. RTC time was not changed.");
     Serial.println("[RTC] Update failed: NTP time is not available");
@@ -1934,9 +1936,12 @@ void setup(void)
     }
     if (sensorCount == 0)
     {
+      useTempSensor = false;
+      saveSystemConfig();
+
       addBufferError("DS18B20: No temperature sensors found " + String(ONE_WIRE_BUS) + ".");
       queueDisplayMessage("DS18B20 Fail");
-      Serial.println("[DS18B20] ERROR: No sensors found");
+      Serial.println("[DS18B20] ERROR: No sensors found; disabling temperature sensor support");
     }
     else
     {

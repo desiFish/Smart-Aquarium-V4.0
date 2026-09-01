@@ -107,7 +107,9 @@
             border-radius: 8px;
             margin: 0.5rem 0;
             display: flex;
+            flex-wrap: wrap;
             justify-content: center;
+            gap: 6px;
         }
 
         .mode-selector input[type="radio"] {
@@ -119,6 +121,13 @@
             cursor: pointer;
             border-radius: 6px;
             transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 92px;
+            min-height: 42px;
+            box-sizing: border-box;
+            text-align: center;
         }
 
         .mode-selector input[type="radio"]:checked+label {
@@ -414,6 +423,19 @@
             .grid-container {
                 grid-template-columns: 1fr;
             }
+
+            .mode-selector {
+                flex-direction: column;
+                align-items: stretch;
+                width: 100%;
+            }
+
+            .mode-selector label {
+                width: 100%;
+                min-width: 0;
+                flex: 1 1 auto;
+                text-align: center;
+            }
         }
 
         #timerControl_1,
@@ -680,6 +702,8 @@
     <script>
         let relayIds = [];
         let temperatureSensorEnabled = true;
+        let rtcAvailable = true;
+        let rtcWasAvailable = true;
         const ledStatusLocks = {};  // Per-relay locks to prevent overlapping requests
         const lastServerModes = {};
         let errorCheckInFlight = false;  // Prevent overlapping error checks
@@ -717,6 +741,38 @@
             });
         }
 
+        function applyAutoModeAvailability() {
+            relayIds.forEach(ledId => {
+                const autoRadio = document.getElementById(`modeAuto_${ledId}`);
+                const autoLabel = document.querySelector(`label[for="modeAuto_${ledId}"]`);
+                const autoPanel = document.getElementById(`autoControl_${ledId}`);
+                if (!autoRadio || !autoLabel || !autoPanel) return;
+
+                if (rtcAvailable) {
+                    autoRadio.style.display = '';
+                    autoLabel.style.display = '';
+                    autoPanel.style.display = '';
+                    autoRadio.disabled = false;
+                    return;
+                }
+
+                autoRadio.style.display = 'none';
+                autoLabel.style.display = 'none';
+                autoPanel.style.display = 'none';
+                autoRadio.disabled = true;
+
+                const currentMode = Array.from(document.querySelectorAll(`input[name="mode_${ledId}"]`)).find(m => m.checked)?.value;
+                if (currentMode === 'auto') {
+                    const manualRadio = document.getElementById(`modeManual_${ledId}`);
+                    if (manualRadio) manualRadio.checked = true;
+                    const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
+                    panels.forEach(panel => panel.classList.remove('active'));
+                    const manualPanel = document.getElementById(`manualControl_${ledId}`);
+                    if (manualPanel) manualPanel.classList.add('active');
+                }
+            });
+        }
+
         function fetchSystemConfig() {
             return fetch('/api/system/config', { cache: 'no-store' })
                 .then(response => {
@@ -726,11 +782,13 @@
                 .then(config => {
                     temperatureSensorEnabled = config.useTempSensor !== false;
                     applyTemperatureModeAvailability();
+                    applyAutoModeAvailability();
                 })
                 .catch(error => {
                     console.error('Error fetching system config:', error);
                     temperatureSensorEnabled = true;
                     applyTemperatureModeAvailability();
+                    applyAutoModeAvailability();
                 });
         }
 
@@ -884,7 +942,15 @@
                     })
                     .then(mode => {
                         // Validate mode
-                        const validModes = temperatureSensorEnabled ? ['manual', 'auto', 'timer', 'temperature'] : ['manual', 'auto', 'timer'];
+                        const validModes = (
+                            temperatureSensorEnabled && rtcAvailable
+                                ? ['manual', 'auto', 'timer', 'temperature']
+                                : temperatureSensorEnabled
+                                    ? ['manual', 'timer', 'temperature']
+                                    : rtcAvailable
+                                        ? ['manual', 'auto', 'timer']
+                                        : ['manual', 'timer']
+                        );
                         mode = mode.toLowerCase().trim();
 
                         if (!validModes.includes(mode)) return;
@@ -923,7 +989,15 @@
                     })
                     .then(mode => {
                         mode = mode.toLowerCase().trim();
-                        const validModes = temperatureSensorEnabled ? ['manual', 'auto', 'timer', 'temperature'] : ['manual', 'auto', 'timer'];
+                        const validModes = (
+                            temperatureSensorEnabled && rtcAvailable
+                                ? ['manual', 'auto', 'timer', 'temperature']
+                                : temperatureSensorEnabled
+                                    ? ['manual', 'timer', 'temperature']
+                                    : rtcAvailable
+                                        ? ['manual', 'auto', 'timer']
+                                        : ['manual', 'timer']
+                        );
                         if (!validModes.includes(mode)) mode = 'manual';
 
                         // Select the correct radio button
@@ -1460,7 +1534,15 @@
                 })
                 .then(systemState => {
                     ledStates[ledId].enabled = systemState.enabled;
-                    const validModes = temperatureSensorEnabled ? ['manual', 'auto', 'timer', 'toggle', 'temperature'] : ['manual', 'auto', 'timer', 'toggle'];
+                    const validModes = (
+                        temperatureSensorEnabled && rtcAvailable
+                            ? ['manual', 'auto', 'timer', 'toggle', 'temperature']
+                            : temperatureSensorEnabled
+                                ? ['manual', 'timer', 'toggle', 'temperature']
+                                : rtcAvailable
+                                    ? ['manual', 'auto', 'timer', 'toggle']
+                                    : ['manual', 'timer', 'toggle']
+                    );
                     const mode = typeof systemState.mode === 'string' ? systemState.mode.toLowerCase().trim() : '';
                     const modeRadio = validModes.includes(mode)
                         ? document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`)
@@ -1582,8 +1664,22 @@
                 const response = await fetch(`/api/rtctime?check=${Date.now()}`, { cache: 'no-store' });
                 if (!response.ok) throw new Error('RTC request failed');
                 const data = (await response.text()).trim();
+                const nextRtcAvailable = !!data && data !== 'RTC Error';
+
+                if (!rtcWasAvailable && nextRtcAvailable) {
+                    syncModesFromServer();
+                }
+
+                rtcWasAvailable = nextRtcAvailable;
+                rtcAvailable = nextRtcAvailable;
+                applyAutoModeAvailability();
                 return data ? `${data}\u00B0C` : 'RTC Error';
             } catch (error) {
+                if (rtcWasAvailable) {
+                    rtcWasAvailable = false;
+                }
+                rtcAvailable = false;
+                applyAutoModeAvailability();
                 return 'RTC Error';
             }
         }
@@ -1611,17 +1707,20 @@
         // Replace existing initialization code at the bottom with:
         function initializeApp() {
             fetchSystemConfig().then(() => {
-                fetchRelayCount().then(() => Promise.all([
-                    fetchLEDStates(),
-                    fetchLEDNames(),
-                    fetchScheduleTimes(),
-                    temperatureSensorEnabled ? fetchTemperatureSensors() : Promise.resolve()
-                ])).then(() => {
-                    applyTemperatureModeAvailability();
-                    initModesFromServer();
-                    relayIds.forEach(ledId => {
-                        setupLED(ledId);
-                        checkTimerState(ledId);
+                fetchRtcData().then(() => {
+                    fetchRelayCount().then(() => Promise.all([
+                        fetchLEDStates(),
+                        fetchLEDNames(),
+                        fetchScheduleTimes(),
+                        temperatureSensorEnabled ? fetchTemperatureSensors() : Promise.resolve()
+                    ])).then(() => {
+                        applyTemperatureModeAvailability();
+                        applyAutoModeAvailability();
+                        initModesFromServer();
+                        relayIds.forEach(ledId => {
+                            setupLED(ledId);
+                            checkTimerState(ledId);
+                        });
                     });
                 });
             });
