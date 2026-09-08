@@ -22,6 +22,26 @@
 
 > © 2025 desiFish. This project is protected by copyright law. All rights reserved unless explicitly stated under the GPL v3 license terms.
 
+## Index
+
+- [Gallery](#-gallery)
+- [Safety](#-safety)
+- [Project Overview](#project-overview)
+- [Relay Modes](#relay-modes)
+   - [Manual](#manual)
+   - [Auto](#auto)
+   - [Timer](#timer)
+   - [Toggle](#toggle)
+   - [Temperature](#temperature)
+- [Hardware](#hardware)
+- [Indicators and Recovery](#indicators-and-recovery)
+- [Web Interface and API](#web-interface-and-api)
+- [Setup and Upload](#setup-and-upload)
+- [Persistence](#persistence)
+- [Firmware Structure](#firmware-structure)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## 🖼️ Gallery
 
 <table>

@@ -2280,8 +2280,8 @@ void loop(void)
       preferences.begin("time", false);
       uint8_t lastUpdateDay = preferences.getUChar("lastUpdateDay", 0);
       preferences.end();
-      uint8_t daysSinceUpdate = lastUpdateDay == 0 ? 15 : (now.day() - lastUpdateDay + 31) % 31;
-      if (daysSinceUpdate >= 15)
+      uint8_t daysSinceUpdate = lastUpdateDay == 0 ? 10 : (now.day() - lastUpdateDay + 31) % 31;
+      if (daysSinceUpdate >= 10)
       {
         Serial.printf("[RTC] Automatic update due: %u days since last update\n", daysSinceUpdate);
         autoTimeUpdate();
