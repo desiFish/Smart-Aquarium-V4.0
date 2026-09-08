@@ -22,19 +22,37 @@
 
 > © 2025 desiFish. This project is protected by copyright law. All rights reserved unless explicitly stated under the GPL v3 license terms.
 
-## 📱 Preview
+## 🖼️ Gallery
 
 <table>
 <tr>
-    <td align="center" colspan="2">
-        <img src="images/index_new.png" alt="New Control Interface" width="75%">
-        <br>New Interface
+   <td align="center">
+      <img src="images/index.png" alt="Aquarium control interface" width="90%">
+      <br>Control Interface
+   </td>
+   <td align="center">
+      <img src="images/index_mob.png" alt="Aquarium control interface on mobile" width="55%">
+      <br>Mobile Control Interface
     </td>
 </tr>
 <tr>
-    <td align="center" colspan="2">
-        <img src="images/Tentative_Schematic_Smart-Aquarium-V4.0_2025-04-29.png" alt="Circuit Schematic" width="75%">
-        <br>Tentative Circuit Schematic V4.0
+   <td align="center">
+      <img src="images/settings.png" alt="Aquarium settings interface" width="90%">
+      <br>Settings Interface
+   </td>
+   <td align="center">
+      <img src="images/settings_mob.png" alt="Aquarium settings interface on mobile" width="55%">
+      <br>Mobile Settings Interface
+   </td>
+</tr>
+<tr>
+   <td align="center">
+      <img src="images/Main.png" alt="Main circuit schematic" width="90%">
+      <br>Main Schematic
+   </td>
+   <td align="center">
+      <img src="images/Power.png" alt="Power circuit schematic" width="90%">
+      <br>Power Schematic
     </td>
 </tr>
 </table>
