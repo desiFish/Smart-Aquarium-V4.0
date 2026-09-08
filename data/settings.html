@@ -300,6 +300,68 @@
             background: #1976D2;
         }
 
+        .firmware-update {
+            display: block;
+            margin: 16px auto 0;
+        }
+
+        .settings-data-actions {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .settings-data-actions .btn-set {
+            margin-top: 0;
+        }
+
+        .operation-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(18, 18, 18, 0.94);
+        }
+
+        .operation-overlay.active {
+            display: flex;
+        }
+
+        .operation-dialog {
+            width: min(420px, 100%);
+            padding: 24px;
+            background: #1e1e1e;
+            border: 1px solid #3b4650;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .operation-dialog h3 {
+            margin: 0 0 16px;
+            color: #2196F3;
+        }
+
+        .operation-progress {
+            height: 10px;
+            overflow: hidden;
+            margin-top: 16px;
+            background: #333;
+            border-radius: 5px;
+        }
+
+        .operation-progress-bar {
+            width: 0;
+            height: 100%;
+            background: #2196F3;
+            transition: width 0.25s ease;
+        }
+
         .btn-reset {
             background: #b71c1c;
             margin-top: 0;
@@ -319,6 +381,16 @@
 </head>
 
 <body>
+    <div id="operationOverlay" class="operation-overlay" role="alertdialog" aria-modal="true" aria-live="polite">
+        <div class="operation-dialog">
+            <h3 id="operationTitle">Please wait</h3>
+            <div id="operationMessage">Working...</div>
+            <div class="operation-progress" aria-hidden="true">
+                <div id="operationProgressBar" class="operation-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="page-header">
         <div class="header">
             <h2 class="page-title">Settings</h2>
@@ -365,6 +437,13 @@
             <span>Use temperature sensors</span>
         </label>
     </section>
+
+    <div class="settings-data-actions">
+        <button class="btn-set" type="button" onclick="window.location.href='/update'">Firmware Update</button>
+        <button id="backupSettings" class="btn-set" type="button">Backup</button>
+        <button id="restoreSettings" class="btn-set" type="button">Restore</button>
+        <input id="restoreFile" type="file" accept="application/json,.json" hidden>
+    </div>
 
     <footer class="version-footer">
         <span id="versionInfo">Checking version...</span>
@@ -743,6 +822,172 @@
                     alert('Failed to reboot device');
                 });
         }
+
+        async function getBackupValue(url, responseType = 'json') {
+            const response = await fetch(url, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Request failed: ${url}`);
+            return responseType === 'text' ? response.text() : response.json();
+        }
+
+        async function postBackupValue(url, value) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(value)
+            });
+            if (!response.ok) throw new Error(`Request failed: ${url}`);
+        }
+
+        function scheduleText(value) {
+            const numericValue = Number(value) || 0;
+            return `${String(Math.floor(numericValue / 100)).padStart(2, '0')}:${String(numericValue % 100).padStart(2, '0')}`;
+        }
+
+        function showOperation(title, message, progress = 0) {
+            document.getElementById('operationTitle').textContent = title;
+            document.getElementById('operationMessage').textContent = message;
+            document.getElementById('operationProgressBar').style.width = `${Math.max(0, Math.min(100, progress))}%`;
+            document.getElementById('operationOverlay').classList.add('active');
+        }
+
+        function hideOperation() {
+            document.getElementById('operationOverlay').classList.remove('active');
+        }
+
+        async function collectRelayBackup(ledId) {
+            const [name, system, schedule, temperature, timer, toggle] = await Promise.all([
+                getBackupValue(`/api/led${ledId}/name`, 'text'),
+                getBackupValue(`/api/led${ledId}/system/state`),
+                getBackupValue(`/api/led${ledId}/schedule`),
+                getBackupValue(`/api/led${ledId}/temperature`),
+                getBackupValue(`/api/led${ledId}/timer/state`),
+                getBackupValue(`/api/led${ledId}/toggle-mode/state`)
+            ]);
+            return { id: ledId, name, system, schedule, temperature, timer, toggle };
+        }
+
+        async function backupSettings() {
+            const button = document.getElementById('backupSettings');
+            if (!applyActionDebounce([button])) return;
+            try {
+                showOperation('Creating backup', 'Reading time and system settings...', 5);
+                const timeSettings = await getBackupValue('/api/time-settings');
+                const systemConfig = await getBackupValue('/api/system/config');
+                const relays = [];
+                for (let index = 0; index < relayIds.length; index++) {
+                    showOperation('Creating backup', `Reading relay ${index + 1} of ${relayIds.length}...`, 10 + ((index + 1) / relayIds.length) * 80);
+                    relays.push(await collectRelayBackup(relayIds[index]));
+                }
+                const backup = {
+                    format: 'smart-aquarium-v4-settings',
+                    version: 1,
+                    createdAt: new Date().toISOString(),
+                    timeSettings,
+                    systemConfig,
+                    relays
+                };
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `smart-aquarium-settings-${new Date().toISOString().slice(0, 10)}.json`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+                showOperation('Backup complete', 'The settings file has been downloaded.', 100);
+                setTimeout(hideOperation, 700);
+            } catch (error) {
+                console.error('Error creating backup:', error);
+                hideOperation();
+                alert('Failed to create backup');
+            }
+        }
+
+        async function restoreRelaySettings(relay) {
+            const ledId = Number(relay.id);
+            if (!Number.isInteger(ledId) || !relay.system) throw new Error('Invalid relay backup');
+
+            await postBackupValue(`/api/led${ledId}/name`, { name: String(relay.name || `Relay ${ledId}`) });
+            await postBackupValue(`/api/led${ledId}/system/state`, { enabled: relay.system.enabled !== false });
+
+            const mode = String(relay.system.mode || 'manual').toLowerCase();
+            if (mode === 'temperature' && relay.temperature && relay.temperature.sensor && Number.isFinite(Number(relay.temperature.targetTemperature))) {
+                await postBackupValue(`/api/led${ledId}/temperature`, {
+                    sensor: relay.temperature.sensor,
+                    targetTemperature: Number(relay.temperature.targetTemperature)
+                });
+            } else if (mode === 'auto' && relay.schedule) {
+                await postBackupValue(`/api/led${ledId}/mode`, { mode: 'auto' });
+                await postBackupValue(`/api/led${ledId}/schedule`, {
+                    onTime: scheduleText(relay.schedule.onTime),
+                    offTime: scheduleText(relay.schedule.offTime)
+                });
+            } else if (mode === 'timer' && relay.timer) {
+                await postBackupValue(`/api/led${ledId}/mode`, { mode: 'timer' });
+                if (relay.timer.active && Number(relay.timer.duration) > 0)
+                    await postBackupValue(`/api/led${ledId}/timer`, { duration: Number(relay.timer.duration), start: true });
+            } else if (mode === 'toggle' && relay.toggle) {
+                await postBackupValue(`/api/led${ledId}/mode`, { mode: 'toggle' });
+                await postBackupValue(`/api/led${ledId}/toggle-mode`, {
+                    onMinutes: Number(relay.toggle.onMinutes) || 0,
+                    offMinutes: Number(relay.toggle.offMinutes) || 0,
+                    start: relay.toggle.active === true
+                });
+            } else {
+                await postBackupValue(`/api/led${ledId}/mode`, { mode: 'manual' });
+            }
+
+            if (relay.system.enabled && ['manual', 'timer', 'toggle'].includes(mode)) {
+                const currentState = await getBackupValue(`/api/led${ledId}/system/state`);
+                if ((currentState.state === 'ON') !== (relay.system.state === 'ON'))
+                    await postBackupValue(`/api/led${ledId}/toggle`, {});
+            }
+        }
+
+        async function restoreSettings(file) {
+            try {
+                const backup = JSON.parse(await file.text());
+                if (backup.format !== 'smart-aquarium-v4-settings' || !Array.isArray(backup.relays))
+                    throw new Error('Unsupported backup file');
+                if (!confirm('Restore saved relay and system settings?')) return;
+
+                showOperation('Restoring backup', 'Preparing relay settings...', 0);
+                for (let index = 0; index < backup.relays.length; index++) {
+                    const relay = backup.relays[index];
+                    showOperation('Restoring backup', `Restoring relay ${index + 1} of ${backup.relays.length}...`, (index / (backup.relays.length + 2)) * 100);
+                    await restoreRelaySettings(relay);
+                }
+
+                if (backup.timeSettings) {
+                    showOperation('Restoring backup', 'Restoring time and NTP settings...', (backup.relays.length / (backup.relays.length + 2)) * 100);
+                    await postBackupValue('/api/time-settings', {
+                        ntpServer: backup.timeSettings.ntpServer,
+                        customServer: backup.timeSettings.customServer || '',
+                        offset: Number(backup.timeSettings.offset)
+                    });
+                }
+                if (backup.systemConfig && typeof backup.systemConfig.useTempSensor === 'boolean') {
+                    showOperation('Restoring backup', 'Restoring system configuration...', ((backup.relays.length + 1) / (backup.relays.length + 2)) * 100);
+                    await postBackupValue('/api/system/config', backup.systemConfig);
+                }
+
+                showOperation('Restore complete', 'Settings restored. Reloading...', 100);
+                await new Promise(resolve => setTimeout(resolve, 700));
+                alert('Settings restored successfully');
+                window.location.reload();
+            } catch (error) {
+                console.error('Error restoring backup:', error);
+                hideOperation();
+                alert(`Failed to restore backup: ${error.message}`);
+            }
+        }
+
+        document.getElementById('backupSettings').addEventListener('click', backupSettings);
+        document.getElementById('restoreSettings').addEventListener('click', () => {
+            document.getElementById('restoreFile').click();
+        });
+        document.getElementById('restoreFile').addEventListener('change', event => {
+            if (event.target.files[0]) restoreSettings(event.target.files[0]);
+            event.target.value = '';
+        });
 
         // Initialize
         fetchSystemConfig();
