@@ -110,6 +110,7 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: 6px;
+            box-sizing: border-box;
         }
 
         .mode-selector input[type="radio"] {
@@ -133,6 +134,17 @@
         .mode-selector input[type="radio"]:checked+label {
             background: #2196F3;
             color: white;
+        }
+
+        .mode-selector label.active-mode::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            margin-right: 6px;
+            border-radius: 50%;
+            background: #00E676;
+            box-shadow: 0 0 6px rgba(0, 230, 118, 0.9);
+            flex: 0 0 auto;
         }
 
         .control-panel {
@@ -729,6 +741,47 @@
         let errorCheckInFlight = false;  // Prevent overlapping error checks
         let connectionCheckId = 0;  // Cancellation token for connection checks
 
+        function setActiveModeIndicator(ledId, mode) {
+            const selector = `#led${ledId} .mode-selector label`;
+            document.querySelectorAll(selector).forEach(label => label.classList.remove('active-mode'));
+            const activeLabel = document.querySelector(`#led${ledId} label[for="mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}"]`);
+            if (activeLabel) activeLabel.classList.add('active-mode');
+        }
+
+        function getValidModes() {
+            if (temperatureSensorEnabled && rtcAvailable) return ['manual', 'auto', 'timer', 'toggle', 'temperature'];
+            if (temperatureSensorEnabled) return ['manual', 'timer', 'toggle', 'temperature'];
+            if (rtcAvailable) return ['manual', 'auto', 'timer', 'toggle'];
+            return ['manual', 'timer', 'toggle'];
+        }
+
+        function fetchChecked(url, options) {
+            return fetch(url, options).then(response => {
+                if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+                return response;
+            });
+        }
+
+        function setModeUI(ledId, mode) {
+            if (!getValidModes().includes(mode)) mode = 'manual';
+
+            const modeRadio = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
+            const modePanel = document.querySelector(`#${mode}Control_${ledId}`);
+            if (!modeRadio || !modePanel) return;
+
+            modeRadio.checked = true;
+            setActiveModeIndicator(ledId, mode);
+            document.querySelectorAll(`#led${ledId} .control-panel`).forEach(panel => panel.classList.remove('active'));
+            modePanel.classList.add('active');
+            document.querySelector(`#setTemperature_${ledId}`).textContent = mode === 'temperature'
+                ? 'Stop Temperature Control'
+                : 'Start Temperature Control';
+            document.querySelector(`#setTime_${ledId}`).textContent = mode === 'auto'
+                ? 'Stop Schedule'
+                : 'Start Schedule';
+            return mode;
+        }
+
         function applyTemperatureModeAvailability() {
             relayIds.forEach(ledId => {
                 const tempRadio = document.getElementById(`modeTemperature_${ledId}`);
@@ -896,22 +949,20 @@
 
         // Add this function at the start of the script section
         function fetchLEDNames() {
-            relayIds.forEach(ledId => {
-                fetch(`/api/led${ledId}/name`)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Network response was not ok');
-                        return response.text();
-                    })
-                    .then(name => {
-                        const nameElement = document.getElementById(`ledName_${ledId}`);
-                        nameElement.textContent = name || `LED ${ledId}`;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching LED name:', error);
-                        const nameElement = document.getElementById(`ledName_${ledId}`);
-                        nameElement.textContent = 'Error';
-                    });
-            });
+            return Promise.all(relayIds.map(ledId => fetch(`/api/led${ledId}/name`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text();
+                })
+                .then(name => {
+                    const nameElement = document.getElementById(`ledName_${ledId}`);
+                    nameElement.textContent = name || `LED ${ledId}`;
+                })
+                .catch(error => {
+                    console.error('Error fetching LED name:', error);
+                    const nameElement = document.getElementById(`ledName_${ledId}`);
+                    nameElement.textContent = 'Error';
+                })));
         }
 
         // LED states tracking
@@ -919,174 +970,93 @@
 
         // function to fetch LED states
         function fetchLEDStates() {
-            relayIds.forEach(ledId => {
-                fetch(`/api/led${ledId}/system/state`)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Network response was not ok');
-                        return response.json();
-                    })
-                    .then(state => {
-                        ledStates[ledId].enabled = state.enabled;
-                        const led = document.getElementById(`led${ledId}`);
-                        const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
-                        const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
+            return Promise.all(relayIds.map(ledId => fetch(`/api/led${ledId}/system/state`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(state => {
+                    ledStates[ledId].enabled = state.enabled;
+                    const led = document.getElementById(`led${ledId}`);
+                    const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
+                    const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
 
-                        // Update UI state
-                        disableToggle.checked = !state.enabled;
-                        controls.forEach(panel => {
-                            panel.style.opacity = state.enabled ? '1' : '0.5';
-                            panel.style.pointerEvents = state.enabled ? 'auto' : 'none';
-                        });
+                    // Update UI state
+                    disableToggle.checked = !state.enabled;
+                    controls.forEach(panel => {
+                        panel.style.opacity = state.enabled ? '1' : '0.5';
+                        panel.style.pointerEvents = state.enabled ? 'auto' : 'none';
+                    });
 
-                        // Update status text if disabled
-                        if (!state.enabled) {
-                            const statusText = document.querySelector(`#liveStatus_${ledId}`);
-                            const indicator = document.querySelector(`#led${ledId} .status-indicator`);
-                            statusText.textContent = 'Status: Disabled';
-                            indicator.className = 'status-indicator off';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching LED state:', error);
-                        // Disable LED on error
-                        ledStates[ledId].enabled = false;
-                        const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
-                        const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
+                    // Update status text if disabled
+                    if (!state.enabled) {
                         const statusText = document.querySelector(`#liveStatus_${ledId}`);
                         const indicator = document.querySelector(`#led${ledId} .status-indicator`);
-
-                        disableToggle.checked = true;
-                        controls.forEach(panel => {
-                            panel.style.opacity = '0.5';
-                            panel.style.pointerEvents = 'none';
-                        });
                         statusText.textContent = 'Status: Disabled';
                         indicator.className = 'status-indicator off';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching LED state:', error);
+                    // Disable LED on error
+                    ledStates[ledId].enabled = false;
+                    const disableToggle = document.querySelector(`#disableToggle_${ledId}`);
+                    const controls = document.querySelectorAll(`#led${ledId} .control-panel, #led${ledId} .mode-selector`);
+                    const statusText = document.querySelector(`#liveStatus_${ledId}`);
+                    const indicator = document.querySelector(`#led${ledId} .status-indicator`);
+
+                    disableToggle.checked = true;
+                    controls.forEach(panel => {
+                        panel.style.opacity = '0.5';
+                        panel.style.pointerEvents = 'none';
                     });
-            });
+                    statusText.textContent = 'Status: Disabled';
+                    indicator.className = 'status-indicator off';
+                })));
         }
 
-        // Add this function before setupLED
         function syncModesFromServer() {
-            relayIds.forEach(ledId => {
-                if (!ledStates[ledId].enabled) return;
-
-                fetch(`/api/led${ledId}/mode`)
+            return Promise.all(relayIds.map(ledId => {
+                return fetch(`/api/led${ledId}/mode`)
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
                         return response.text();
                     })
                     .then(mode => {
-                        // Validate mode
-                        const validModes = (
-                            temperatureSensorEnabled && rtcAvailable
-                                ? ['manual', 'auto', 'timer', 'toggle', 'temperature']
-                                : temperatureSensorEnabled
-                                    ? ['manual', 'timer', 'toggle', 'temperature']
-                                    : rtcAvailable
-                                        ? ['manual', 'auto', 'timer', 'toggle']
-                                        : ['manual', 'timer', 'toggle']
-                        );
-                        mode = mode.toLowerCase().trim();
-
-                        if (!validModes.includes(mode)) return;
-
-                        // Update UI
-                        const modeRadio = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
-                        const panels = {
-                            manual: document.querySelector(`#manualControl_${ledId}`),
-                            auto: document.querySelector(`#autoControl_${ledId}`),
-                            timer: document.querySelector(`#timerControl_${ledId}`),
-                            temperature: document.querySelector(`#temperatureControl_${ledId}`)
-                        };
-
-                        if (modeRadio) {
-                            // Check radio button
-                            modeRadio.checked = true;
-
-                            // Show correct panel
-                            Object.values(panels).forEach(panel => {
-                                if (panel) panel.classList.remove('active');
-                            });
-                            if (panels[mode]) panels[mode].classList.add('active');
-                        }
+                        mode = setModeUI(ledId, mode.toLowerCase().trim());
+                        if (mode === 'timer') return checkTimerState(ledId);
+                        if (mode === 'toggle') return checkToggleState(ledId);
                     })
                     .catch(error => console.error(`Error syncing mode for LED ${ledId}:`, error));
-            });
-        }
-
-        // Add this function after fetchLEDStates
-        function initModesFromServer() {
-            relayIds.forEach(ledId => {
-                fetch(`/api/led${ledId}/mode`)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Network response was not ok');
-                        return response.text();
-                    })
-                    .then(mode => {
-                        mode = mode.toLowerCase().trim();
-                        const validModes = (
-                            temperatureSensorEnabled && rtcAvailable
-                                ? ['manual', 'auto', 'timer', 'toggle', 'temperature']
-                                : temperatureSensorEnabled
-                                    ? ['manual', 'timer', 'toggle', 'temperature']
-                                    : rtcAvailable
-                                        ? ['manual', 'auto', 'timer', 'toggle']
-                                        : ['manual', 'timer', 'toggle']
-                        );
-                        if (!validModes.includes(mode)) mode = 'manual';
-
-                        // Select the correct radio button
-                        const modeSelector = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
-                        if (modeSelector) {
-                            modeSelector.checked = true;
-                        }
-
-                        // Show the correct panel
-                        const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
-                        panels.forEach(p => p.classList.remove('active'));
-                        document.querySelector(`#${mode}Control_${ledId}`).classList.add('active');
-
-                        // If timer mode, check timer state
-                        if (mode === 'timer') {
-                            checkTimerState(ledId);
-                        }
-                        // If toggle mode, check toggle state
-                        if (mode === 'toggle') {
-                            checkToggleState(ledId);
-                        }
-                    })
-                    .catch(error => console.error(`Error loading mode for LED ${ledId}:`, error));
-            });
+            }));
         }
 
         // Add this function after syncModesFromServer
         function fetchScheduleTimes() {
-            relayIds.forEach(ledId => {
-                fetch(`/api/led${ledId}/schedule`)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Network response was not ok');
-                        return response.json();
-                    })
-                    .then(schedule => {
-                        const onTimeInput = document.querySelector(`#onTime_${ledId}`);
-                        const offTimeInput = document.querySelector(`#offTime_${ledId}`);
+            return Promise.all(relayIds.map(ledId => fetch(`/api/led${ledId}/schedule`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(schedule => {
+                    const onTimeInput = document.querySelector(`#onTime_${ledId}`);
+                    const offTimeInput = document.querySelector(`#offTime_${ledId}`);
 
-                        // Convert integer times back to HH:MM format
-                        if (schedule.onTime) {
-                            const hours = Math.floor(schedule.onTime / 100).toString().padStart(2, '0');
-                            const minutes = (schedule.onTime % 100).toString().padStart(2, '0');
-                            onTimeInput.value = `${hours}:${minutes}`;
-                        }
+                    // Convert integer times back to HH:MM format
+                    if (schedule.onTime) {
+                        const hours = Math.floor(schedule.onTime / 100).toString().padStart(2, '0');
+                        const minutes = (schedule.onTime % 100).toString().padStart(2, '0');
+                        onTimeInput.value = `${hours}:${minutes}`;
+                    }
 
-                        if (schedule.offTime) {
-                            const hours = Math.floor(schedule.offTime / 100).toString().padStart(2, '0');
-                            const minutes = (schedule.offTime % 100).toString().padStart(2, '0');
-                            offTimeInput.value = `${hours}:${minutes}`;
-                        }
-                    })
-                    .catch(error => console.error(`Error fetching schedule for LED ${ledId}:`, error));
-            });
+                    if (schedule.offTime) {
+                        const hours = Math.floor(schedule.offTime / 100).toString().padStart(2, '0');
+                        const minutes = (schedule.offTime % 100).toString().padStart(2, '0');
+                        offTimeInput.value = `${hours}:${minutes}`;
+                    }
+                })
+                .catch(error => console.error(`Error fetching schedule for LED ${ledId}:`, error))
+            ));
         }
 
         // active timer tracking
@@ -1290,22 +1260,6 @@
                 .catch(error => console.error('Error checking timer state:', error));
         }
 
-        function checkAllTimerStates() {
-            relayIds.forEach(ledId => {
-                fetch(`/api/led${ledId}/mode`)
-                    .then(response => response.text())
-                    .then(mode => {
-                        if (mode.trim().toLowerCase() === 'timer') {
-                            checkTimerState(ledId);
-                        }
-                        if (mode.trim().toLowerCase() === 'toggle') {
-                            checkToggleState(ledId);
-                        }
-                    })
-                    .catch(error => console.error('Error checking mode:', error));
-            });
-        }
-
         let availableSensors = [];
         function fetchTemperatureSensors() {
             return fetch('/api/sensors')
@@ -1382,6 +1336,7 @@
                         .then(() => {
                             temperatureButton.textContent = 'Start Temperature Control';
                             led.modes.forEach(mode => mode.checked = mode.value === 'manual');
+                            setActiveModeIndicator(ledId, 'manual');
                             Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                             led.panels.manual.classList.add('active');
                             updateLEDStatus(ledId);
@@ -1410,6 +1365,7 @@
                     })
                     .then(() => {
                         led.modes.forEach(mode => mode.checked = mode.value === 'temperature');
+                        setActiveModeIndicator(ledId, 'temperature');
                         Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                         led.panels.temperature.classList.add('active');
                         document.querySelector(`#setTemperature_${ledId}`).textContent = 'Stop Temperature Control';
@@ -1421,20 +1377,10 @@
                     });
             };
 
-            // Mode selection only updates UI panels
+            // Mode selection only changes the visible panel.
             led.modes.forEach(mode => {
-                mode.onclick = () => {
+                mode.onchange = () => {
                     if (!ledStates[ledId].enabled) return;
-
-                    // Reset timer state if switching away from timer mode
-                    const currentMode = Array.from(led.modes).find(m => m.checked)?.value;
-                    if (currentMode === 'timer' && mode.value !== 'timer') {
-                        const timerToggle = document.querySelector(`#timerToggle_${ledId}`);
-                        timerToggle.checked = false;
-                        if (activeTimers[ledId]) {
-                            hideTimerAnimation(ledId);
-                        }
-                    }
 
                     Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                     led.panels[mode.value].classList.add('active');
@@ -1456,12 +1402,13 @@
                     timerToggle.checked = false;
                 }
 
-                fetch(`/api/led${ledId}/mode`, {
+                fetchChecked(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'manual' })
                 })
                     .then(() => {
+                        setActiveModeIndicator(ledId, 'manual');
                         return fetch(`/api/led${ledId}/toggle`, { method: 'POST' });
                     })
                     .then(() => updateLEDStatus(ledId))
@@ -1482,6 +1429,7 @@
                         .then(() => {
                             setTimeBtn.textContent = 'Start Schedule';
                             led.modes.forEach(mode => mode.checked = mode.value === 'manual');
+                            setActiveModeIndicator(ledId, 'manual');
                             Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                             led.panels.manual.classList.add('active');
                             updateLEDStatus(ledId);
@@ -1501,7 +1449,7 @@
                     return;
                 }
 
-                fetch(`/api/led${ledId}/mode`, {
+                fetchChecked(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'auto' })
@@ -1515,6 +1463,7 @@
                     })
                     .then(() => {
                         setTimeBtn.textContent = 'Stop Schedule';
+                        setActiveModeIndicator(ledId, 'auto');
                         alert('Schedule set successfully!');
                     })
                     .catch(error => {
@@ -1566,7 +1515,7 @@
                     return;
                 }
 
-                fetch(`/api/led${ledId}/mode`, {
+                fetchChecked(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'timer' })
@@ -1581,6 +1530,7 @@
                     .then(response => response.text())
                     .then(result => {
                         if (result === "Timer started") {
+                            setActiveModeIndicator(ledId, 'timer');
                             showTimerAnimation(ledId);
                         } else if (result === "Timer stopped") {
                             hideTimerAnimation(ledId);
@@ -1629,7 +1579,7 @@
                     return;
                 }
 
-                fetch(`/api/led${ledId}/mode`, {
+                fetchChecked(`/api/led${ledId}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: 'toggle' })
@@ -1646,6 +1596,7 @@
                         return response.json();
                     })
                     .then(() => {
+                        setActiveModeIndicator(ledId, 'toggle');
                         showToggleAnimation(ledId);
                     })
                     .catch(error => {
@@ -1745,31 +1696,11 @@
                 })
                 .then(systemState => {
                     ledStates[ledId].enabled = systemState.enabled;
-                    const validModes = (
-                        temperatureSensorEnabled && rtcAvailable
-                            ? ['manual', 'auto', 'timer', 'toggle', 'temperature']
-                            : temperatureSensorEnabled
-                                ? ['manual', 'timer', 'toggle', 'temperature']
-                                : rtcAvailable
-                                    ? ['manual', 'auto', 'timer', 'toggle']
-                                    : ['manual', 'timer', 'toggle']
-                    );
                     const mode = typeof systemState.mode === 'string' ? systemState.mode.toLowerCase().trim() : '';
-                    const modeRadio = validModes.includes(mode)
-                        ? document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`)
-                        : null;
                     const serverModeChanged = lastServerModes[ledId] !== mode;
                     lastServerModes[ledId] = mode;
-                    if (modeRadio && serverModeChanged) {
-                        modeRadio.checked = true;
-                        document.querySelectorAll(`#led${ledId} .control-panel`).forEach(panel => panel.classList.remove('active'));
-                        document.querySelector(`#${mode}Control_${ledId}`)?.classList.add('active');
-                        document.querySelector(`#setTemperature_${ledId}`).textContent = mode === 'temperature'
-                            ? 'Stop Temperature Control'
-                            : 'Start Temperature Control';
-                        document.querySelector(`#setTime_${ledId}`).textContent = mode === 'auto'
-                            ? 'Stop Schedule'
-                            : 'Start Schedule';
+                    if (serverModeChanged) {
+                        setModeUI(ledId, mode);
                     }
                     disableToggle.checked = !systemState.enabled;
                     controls.forEach(panel => {
@@ -1884,13 +1815,16 @@
                 rtcWasAvailable = nextRtcAvailable;
                 rtcAvailable = nextRtcAvailable;
                 applyAutoModeAvailability();
-                return data ? `${data}\u00B0C` : 'RTC Error';
+                const displayValue = data ? `${data}\u00B0C` : 'RTC Error';
+                document.getElementById('rtcDisplay').textContent = displayValue;
+                return displayValue;
             } catch (error) {
                 if (rtcWasAvailable) {
                     rtcWasAvailable = false;
                 }
                 rtcAvailable = false;
                 applyAutoModeAvailability();
+                document.getElementById('rtcDisplay').textContent = 'RTC Error';
                 return 'RTC Error';
             }
         }
@@ -1916,38 +1850,31 @@
         }
 
         // Replace existing initialization code at the bottom with:
-        function initializeApp() {
-            fetchSystemConfig().then(() => {
-                fetchRtcData().then(() => {
-                    fetchRelayCount().then(() => Promise.all([
-                        fetchLEDStates(),
-                        fetchLEDNames(),
-                        fetchScheduleTimes(),
-                        temperatureSensorEnabled ? fetchTemperatureSensors() : Promise.resolve()
-                    ])).then(() => {
-                        applyTemperatureModeAvailability();
-                        applyAutoModeAvailability();
-                        initModesFromServer();
-                        relayIds.forEach(ledId => {
-                            setupLED(ledId);
-                            checkTimerState(ledId);
-                            checkToggleState(ledId);
-                        });
-                    });
-                });
-            });
+        async function initializeApp() {
+            try {
+                await fetchSystemConfig();
+                await fetchRtcData();
+                await fetchRelayCount();
+                await Promise.all([
+                    fetchLEDStates(),
+                    fetchLEDNames(),
+                    fetchScheduleTimes(),
+                    temperatureSensorEnabled ? fetchTemperatureSensors() : Promise.resolve()
+                ]);
+                applyTemperatureModeAvailability();
+                applyAutoModeAvailability();
+                relayIds.forEach(setupLED);
+                await syncModesFromServer();
+            } catch (error) {
+                console.error('Error initializing application:', error);
+            }
 
             // Setup periodic checks
             setInterval(checkConnection, 3000);
             setInterval(fetchError, 3000);
-            setInterval(() => fetchRtcData().then(data => {
-                document.getElementById('rtcDisplay').textContent = data;
-            }), 15000);
+            setInterval(fetchRtcData, 15000);
             checkConnection();
             fetchError();
-            fetchRtcData().then(data => {
-                document.getElementById('rtcDisplay').textContent = data;
-            });
             fetchVersion();
         }
 

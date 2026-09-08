@@ -16,7 +16,7 @@
 [![GitHub license](https://img.shields.io/github/license/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/blob/main/LICENSE)
 [![GitHub last commit](https://img.shields.io/github/last-commit/desiFish/Project_Mina)](https://github.com/desiFish/Project_Mina/commits/main)
 [![Development Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/desiFish/Project_Mina)
-[![Development Status: Paused](https://img.shields.io/badge/development-paused%20%2F%20halted%20%2F%20temporarily%20stopped-red)](https://github.com/desiFish/Project_Mina)
+[![Development Status: Active](https://img.shields.io/badge/development-active-green)](https://github.com/desiFish/Project_Mina)
 [![ESP32](https://img.shields.io/badge/device-ESP32-blue)](https://github.com/desiFish/Project_Mina)
 [![Web UI](https://img.shields.io/badge/interface-Web%20UI-brightgreen)](https://github.com/desiFish/Project_Mina)
 
