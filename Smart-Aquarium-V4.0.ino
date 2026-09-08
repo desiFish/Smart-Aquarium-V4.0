@@ -60,7 +60,7 @@ Author: desiFish (https://github.com/desiFish), and the open-source community
 /** Physical relay output pins in board order. */
 const uint8_t RELAY_PINS[NUM_RELAYS] = {32, 33, 25, 26};
 /** Current firmware version string exposed by the web API. */
-#define SW_VERSION "v0.5.1"
+#define SW_VERSION "v0.5.2."
 
 /** RGB status LED driver instance. */
 Adafruit_NeoPixel statusLed(/*No. of LEDs*/ 1, LED_PIN, NEO_GRB + NEO_KHZ800);
