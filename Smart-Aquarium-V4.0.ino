@@ -601,6 +601,7 @@ bool autoTimeUpdate()
   if (!rtcReady)
   {
     addBufferError("RTC not found. Time update cancelled.");
+    queueDisplayMessage("RTC update Fail\nRTC not found");
     Serial.println("[RTC] Update failed: RTC is not available");
     return false;
   }
@@ -608,6 +609,7 @@ bool autoTimeUpdate()
   if (!enableWiFi())
   {
     addBufferError("WiFi is not connected. RTC time update failed.");
+    queueDisplayMessage("RTC update Fail\nWiFi not connected");
     Serial.println("[RTC] Update failed: WiFi is not connected");
     Serial.printf("[RTC] WiFi status=%d, SSID=%s, IP=%s\n", WiFi.status(), WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
     return false;
@@ -627,6 +629,7 @@ bool autoTimeUpdate()
   if (!timeClient.forceUpdate() || !timeClient.isTimeSet())
   {
     addBufferError("NTP update failed. RTC time was not changed.");
+    queueDisplayMessage("RTC update fail\nNTP unavailable");
     Serial.println("[RTC] Update failed: NTP time is not available");
     return false;
   }
@@ -635,6 +638,7 @@ bool autoTimeUpdate()
   if (rawTime < 1000000000UL)
   {
     addBufferError("NTP returned an invalid time.");
+    queueDisplayMessage("RTC update fail\nInvalid NTP time");
     Serial.println("[RTC] Update failed: invalid NTP epoch");
     return false;
   }

@@ -57,244 +57,216 @@
 </tr>
 </table>
 
-## ⚠️ SAFETY WARNING ⚡
+## ⚠️ Safety
 
-**DANGER: This project involves HIGH VOLTAGE (240V AC) which can be LETHAL!**
+This project combines an isolated low-voltage controller with relay outputs that may switch aquarium equipment connected to mains electricity. The Power schematic shows an AC input, fuse, protection capacitor, common-mode filtering, an HLK-10M05 isolated AC/DC module, and a filtered 5 V output connector. The Main schematic distributes the low-voltage supply to the ESP32, relay interface, sensors, display, buzzer, buttons, and status LED.
 
-This project interfaces with mains electricity which poses serious risks including:
-- ⚡ Electric shock
-- 🔥 Fire hazard
-- 💧 Water + electricity dangers
+**Mains voltage can cause serious injury or death.** The mains section must be built, inspected, tested, and serviced only by a suitably qualified person.
 
-### Required Safety Measures:
-1. **Circuit Protection:**
-   - Install appropriate MCB (Miniature Circuit Breaker)
-   - Use RCCB (Residual Current Circuit Breaker) rated 30mA
-   - Proper fusing for each circuit (max 6A)
+- Use an enclosure, strain relief, fuse, circuit breaker, and RCCB/RCD appropriate for the installation.
+- Confirm the fuse, protection components, HLK-10M05 ratings, creepage, clearance, and enclosure are suitable for the local mains voltage.
+- Keep mains wiring physically separated from the ESP32, relay signals, sensor wiring, and aquarium water.
+- Provide protective earthing where required by local regulations.
+- Never work on the circuit while energized or with wet hands.
+- Treat the schematics as reference designs, not as a complete product-safety review.
 
-2. **Grounding:**
-   - All metal parts must be properly grounded
-   - Use ground fault protection
-   - Double-check ground connections
+## Project Overview
 
-3. **Installation:**
-   - Must be installed by qualified electrician
-   - Follow local electrical codes
-   - Use proper junction boxes
-   - Keep high voltage components away from water
+Smart Aquarium V4.0 is an ESP32-WROOM-based aquarium controller with four active-low relay channels, a responsive LittleFS web interface, local display feedback, temperature control, scheduling, and OTA firmware updates. The current firmware version `v0.5.1`.
 
-4. **Operation:**
-   - Never operate with wet hands
-   - Keep electronics sealed from moisture
-   - Regular safety inspections
-   - Disconnect power before maintenance
+The controller can:
 
-**DISCLAIMER:** Author (desiFish) is not responsible for any damage or injury. Proceed at your own risk.
+- Independently enable, disable, name, and control four relay channels.
+- Drive relays manually, on a clock schedule, with a countdown timer, in a repeating toggle cycle, or from a DS18B20 temperature setpoint.
+- Use a DS3231 RTC for schedules and NTP for time correction.
+- Monitor up to eight discovered DS18B20 sensors on one shared 1-Wire bus.
+- Display the current time, Wi-Fi state, IP address, and queued fault messages on a 128x64 SH1106 OLED.
+- Report faults through the web API, buzzer, and WS2812B status LED.
+- Store relay and system settings across restarts using LittleFS and ESP32 Preferences.
+- Start a Wi-Fi access point for first-time credential setup.
+- Receive firmware updates through ElegantOTA at the `/update` page.
 
-## 🌊 Coming Soon! 
-_Project under development_ 🛠️
+## Relay Modes
 
-⚠️ **IMPORTANT**: This project is in active development and has not been thoroughly tested. Use at your own risk.
+Each relay supports five modes. A relay must be enabled before any mode can turn its output on.
 
-A cutting-edge aquarium control system that will revolutionize your underwater world! 🎮 
-Advanced control for aquariums using ESP32, Preference Lib. and LittleFS.
+### Manual
 
-- 💡 1x WS2812B RGB LEDs for status indication
-  - OLED Display for IP Address and other status
-  - Network connection status
-  - System status alerts (Via Web-Page)
-  - Error condition warnings (Via Beep, LED, Web-Page)
+The dashboard directly toggles the relay. Selecting Manual also stops timer control and ends an active toggle cycle.
 
-### Current Features:
-- 🤜 Better Web UI
-- 📱 Mobile-friendly interface
-- 📊 Automatic Controls
-- ⚡ Dual-core ESP32 support only (ESP32, ESP32-WROOM, etc.)
+### Auto
 
-### Technical Details:
-- 💾 Uses LittleFS for storing web interface files
-- 💽 Preferences library for persistent settings storage
-- 🕒 Real-time scheduling with DS3231 RTC
-- 🌐 NTP time synchronization
-- 🔌 Controls up to 4 independent relays (easily scalable by adjusting NUM_RELAYS)
-- 🎛️ Four operating modes per relay
-- 💡 State persistence across power cycles
-- 📱 Mobile-first responsive interface
-- ⚡ Runs on both CPU cores for reliability
-- 🔄 Automatic status updates every second
-- 🌍 Async web server for better performance
-- 📊 JSON-based API endpoints
+The relay follows an ON and OFF time in `HH:MM` format. Overnight ranges are supported; for example, ON at `22:00` and OFF at `06:00` remains active across midnight. Auto mode requires a healthy RTC.
 
-### Scalability Note:
-- ✨ Backend code is fully scalable - just modify NUM_RELAYS and RELAY_PINS array
-- 🔧 Web UI automatically scales by fetching NUM_RELAYS 
-- 📍 Default pin configuration: GPIO 26, 27, 14, 12
-- 🔧 Max relay count limited only by available GPIO pins
+### Timer
 
-## 📱 Operating Modes
+The dashboard starts a temporary countdown using one of the available presets: 1, 5, 10, 15, 30, or 45 minutes. When the countdown expires, the relay output is toggled and the timer becomes inactive; the selected mode remains `timer` until another mode is chosen.
 
-Project_Mina offers four versatile operating modes for each relay:
+### Toggle
 
-### 🔄 Manual Mode
-Default operating mode for all relays.
-1. Toggle relay ON/OFF directly through the web interface
-2. State persists until manually changed
-3. Ideal for direct control of equipment
-4. Settings are saved and restored after power cycles
+The relay repeatedly alternates between ON and OFF using independently configured durations from 1 to 1440 minutes. The dashboard displays the current phase and remaining time.
 
-### ⏱️ Timer Mode
-Temporary timed operation for specific durations.
-1. Set desired duration in seconds
-2. Relay automatically toggles after duration expires
-3. Returns to manual mode after completion
-4. Perfect for temporary operations (feeding, maintenance)
-5. Timer state persists through power cycles
+### Temperature
 
-### 🕒 Auto Mode
-Scheduled operation based on time of day.
-1. Set ON time and OFF time (24-hour format, e.g., "14:30")
-2. Supports both same-day schedules (ON: 09:00, OFF: 17:00)
-3. Handles overnight schedules (ON: 22:00, OFF: 06:00)
-4. Checks schedule every second
-5. Schedule persists through power cycles
+The user assigns one discovered DS18B20 address and a target temperature. The controller uses a +/- 0.5 C hysteresis band: it turns on at or below target minus 0.5 C and turns off at or above target plus 0.5 C. An invalid reading forces the relay off and changes the mode to Manual. If the assigned address is not currently discovered, the firmware records an error and leaves the existing output state unchanged until the sensor becomes available again.
 
-### Temperature Mode
-Scheduled operation based on temperature probe (DS18B20).
+Temperature support can be disabled from Settings. If no sensor is found at startup, the firmware disables temperature support and records an error.
 
-> 💡 **Tip**: For equipment that needs to run overnight, set the ON time after the OFF time
-> (e.g., ON: 22:00, OFF: 06:00)
+## Hardware
 
-## 🤝 Sharing & Contributing
+The Main schematic is based on an ESP32-WROOM 30-pin DevKit. The current hardware exposes four relay outputs, two active-high button inputs with pull-down resistors, two parallel DS18B20 connectors, a DS3231 RTC connector, an SH1106 OLED connector, a WS2812B connector, a buzzer, and a 5 V power input.
 
-### 🌟 Show Your Support
-If you find this project useful, consider:
-- ⭐ Giving it a star on GitHub
-- 🔄 Forking it for your own projects
-- 📢 Sharing it with fellow aquarium enthusiasts
+The relay count is configurable in the firmware at compile time. Change `NUM_RELAYS` and provide the same number of GPIO entries in `RELAY_PINS` in `Smart-Aquarium-V4.0.ino`. The firmware then creates that many `Relay` objects, registers the corresponding `/api/ledN/...` routes, includes them in polling and reset operations, and reports the value through `/api/relay-count`. The web dashboard and Settings page read that endpoint and generate their relay panels and name fields dynamically.
 
-### 🎯 How to Fork & Use
-1. 🔱 Click the "Fork" button at the top right
-2. 📋 Clone your fork: `git clone https://github.com/desiFish/Project_Mina.git`
-3. 🔨 Make your changes
-4. 💝 Share your improvements through Pull Requests
+This is not runtime expansion: adding physical channels still requires suitable relay hardware, GPIOs, connector capacity, and safe electrical design. The supplied schematic and pin table describe the current four-relay build.
 
-### 🙏 Giving Credit
-When using this project, please:
-- 🔗 Link back to the original repository
-- 📝 Keep the GPL-3.0 license intact
-- 🌈 Mention in your README: "Based on [Project_Mina](https://github.com/desiFish/Project_Mina) by desiFish"
+### Pin Mapping
 
-### 💫 Spread the Word
-- 🐦 Share on Twitter/X
-- 📱 Post on aquarium forums
-- 👥 Tell your fish-keeping friends
+| Function | Connection |
+| --- | --- |
+| Relay 1 | GPIO 32 |
+| Relay 2 | GPIO 33 |
+| Relay 3 | GPIO 25 |
+| Relay 4 | GPIO 26 |
+| DS18B20 1-Wire bus | GPIO 4 |
+| WS2812B data | GPIO 19 |
+| Buzzer | GPIO 18 |
+| Left button | GPIO 36 |
+| Right button | GPIO 39 |
+| I2C SDA | GPIO 21 |
+| I2C SCL | GPIO 22 |
+| OLED I2C address | `0x3C` |
+| RTC I2C address | `0x68` |
 
-## 📦 Installation
+The two temperature connectors are wired in parallel on the same 1-Wire bus. The schematic shows a 4.7 kOhm pull-up on the data line. The RTC is a DS3231 module with a coin-cell holder and the OLED shares the I2C bus. The relay connector carries four GPIO outputs plus 5 V and ground. The RGB LED connector carries 3.3 V, data, and ground.
 
-### Prerequisites
-1. Install [Arduino IDE 2.3.6](https://www.arduino.cc/en/software) or newer
-2. Install ESP32 board package:
-   - Add `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json` to Additional Board URLs
-   - Install "ESP32 by Espressif Systems" from Boards Manager
+### Power Section
 
-> ⚠️ **Hardware Compatibility**: Currently tested only on ESP32 DevKit V1 (30-pin version). Other ESP32 boards may work but are untested.
+The separate Power schematic routes the AC input through a fuse, a MOV for voltage-spike protection, and a filtering network before the HLK-10M05 isolated supply. The isolated output is filtered and brought to a two-pin connector for the Main board's 5 V and ground input. The MOV is a protection component, not a substitute for correct fusing, earthing, enclosure, and overcurrent protection. Component ratings and the final mains wiring must be selected for the intended installation; the schematic does not by itself establish safe construction or isolation.
 
-### Required Libraries
-Install these from Arduino Library Manager:
-- [ESPAsyncWebServer](https://github.com/ESP32Async/ESPAsyncWebServer) - Async HTTP and WebSocket server
-- [AsyncTCP](https://github.com/ESP32Async/AsyncTCP) - Required by ESPAsyncWebServer
-- [RTClib](https://github.com/adafruit/RTClib) - RTC support by Adafruit
-- ArduinoJson
-- NTPClient
-- Preferences (built-in)
-- WiFi (built-in)
+## Indicators and Recovery
 
-### Board Configuration
-1. Select Board: ESP32 Dev Module
-2. Upload Speed: 921600
-3. CPU Frequency: 240MHz
-4. Flash Frequency: 80MHz
-5. Flash Mode: QIO
-6. Flash Size: 4MB (32Mb)
-7. Partition Scheme: Default 4MB with spiffs
+The single WS2812B status LED is independent of the OLED:
 
-### LittleFS Setup
-See **Resources** section for LittleFS installation guide.
+- **Red:** a device error is latched.
+- **Yellow:** one or both user buttons are pressed.
+- **Green:** a brief low-brightness activity pulse during normal operation.
+- **Blue:** factory reset is active and a restart is pending.
 
-### Project Setup
-1. Clone repository:
-   ```bash
-   git clone https://github.com/desiFish/Project_Mina.git
-   ```
-2. Open `Project_Mina.ino` in Arduino IDE
-3. Edit WiFi credentials in code:
-   ```cpp
-   const char* ssid = "YOUR_WIFI_SSID";
-   const char* password = "YOUR_WIFI_PASSWORD";
-   ```
-4. Connect ESP32 via USB
-5. Select correct COM port in Tools menu
-6. Upload sketch (▶️ button)
-7. Upload web interface:
-   - Press `Ctrl + Shift + P`
-   - Type "littlefs" and select "Upload LittleFS image to Pico/ESP8266/ESP32"
-   - Wait for "LittleFS image uploaded" message
-   
-   > If you encounter any errors:
-   > - Close Serial Monitor
-   > - Restart Arduino IDE
-   > - See Resources section for detailed troubleshooting
+The WS2812B is powered from 3.3 V, as shown in the Main schematic. The buzzer alert patterns implemented by the firmware are:
 
-### Hardware Setup
-⚠️ **Remember safety warnings - work with mains voltage is dangerous!**
-1. Connect DS3231 RTC:
-   - SDA → GPIO 21
-   - SCL → GPIO 22
-   - VCC → 3.3V
-   - GND → GND
-2. Connect relays to specified pins:
-   - Relay 1 → GPIO 26
-   - Relay 2 → GPIO 27
-   - Relay 3 → GPIO 14
-   - Relay 4 → GPIO 12
+- **One beep:** startup confirmation and setup completion.
+- **Four beeps:** OLED initialization failed.
+- **Three beeps:** OLED runtime communication failed, or a temperature read failure alarm is active. Temperature failures repeat this three-beep pattern every three seconds until the sensors recover.
+- **One beep:** OLED communication was restored.
 
-### First Run
-1. Power up the device
-2. Connect to your WiFi network
-3. Find ESP32's IP address in Serial Monitor
-4. Access web interface: `http://<ESP32-IP-ADDRESS>`
-5. Update RTC time using the Settings page
+The buzzer uses 200 ms on/off timing by default; the OLED recovery alert uses a shorter 150 ms timing. Physical button input clears the latched RGB error alarm. OLED messages remain queued until a button is pressed to dismiss them. The OLED normally powers down after 30 seconds without button activity and wakes on the next button press.
 
-### 📚 Resources
-- 📥 [Installing LittleFS Uploader in Arduino IDE 2](https://randomnerdtutorials.com/arduino-ide-2-install-esp32-littlefs/)
-  Essential for uploading the web interface files to ESP32
+The left button starts a factory reset when held for 10 seconds. A reset removes relay JSON files and erases NVS preferences, then reboots after five seconds. The Settings page also provides Reset All, Reboot, time update, and error acknowledgement actions.
 
-## 📜 License
+## Web Interface and API
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0):
+The `data/` directory is uploaded to LittleFS and contains three pages:
 
-### What you can do:
-- ✅ Commercial use
-- ✅ Modify and distribute
-- ✅ Patent use
-- ✅ Private use
+- `index.html` provides the relay dashboard, live state polling, mode controls, timer and toggle countdowns, schedule inputs, and temperature assignment.
+- `settings.html` provides NTP and timezone configuration, relay naming, temperature support, RTC update, reboot, factory reset, and connection/error status.
+- `wifimanager.html` accepts the SSID and password when the controller is in setup access-point mode.
 
-### What you must do:
-- 📢 Disclose source
-- 📝 License and copyright notice
-- 📋 State changes
-- 🔄 Same license
+### Firmware Updates
 
-### What you cannot do:
-- ❌ Hold liable
-- ❌ Sublicense
-- ❌ Remove copyleft
+After the device is connected to Wi-Fi, open `http://<device-ip>/update` to use the ElegantOTA upload page. Upload only firmware images built for the correct ESP32 board and verify that the controller has stable power throughout the update. Do not start an update while other control actions or repeated polling are in progress.
 
-See [LICENSE](LICENSE) for the full license text.
+### Browser Load
 
----
+Use one dashboard window and one Settings window at a time. The pages poll relay state, RTC data, errors, sensor data, and connection status continuously; timer and toggle views add their own countdown requests. Several open windows or duplicated tabs multiply those requests and can slow down or temporarily overwhelm the ESP32 web server, especially during OTA updates. Avoid many tabs, aggressive auto-refresh extensions, or simultaneous bulk requests.
 
-Made with ❤️ in India
+Important API groups include:
 
-> I love Open Source! This project is my way of giving back to the amazing developer community that taught me everything I know.
-> Happy coding! 🇮🇳
+| Endpoint group | Purpose |
+| --- | --- |
+| `/api/status`, `/api/version`, `/api/relay-count` | Device status, firmware version, and relay count |
+| `/api/ledN/name` | Read or change a relay name |
+| `/api/ledN/system/state` | Read or change relay enabled state |
+| `/api/ledN/mode` | Read or change the selected mode |
+| `/api/ledN/toggle` | Manually toggle a relay |
+| `/api/ledN/schedule` | Read or set an Auto schedule |
+| `/api/ledN/timer` and `/timer/state` | Start, stop, and inspect a timer |
+| `/api/ledN/toggle-mode` and `/toggle-mode/state` | Start, stop, and inspect a toggle cycle |
+| `/api/ledN/temperature` | Read or set temperature control |
+| `/api/sensors` | List discovered sensors and readings |
+| `/api/rtctime`, `/api/time/update`, `/api/time-settings` | Read, update, and configure RTC time |
+| `/api/system/config` | Enable or disable temperature support |
+| `/api/error` and `/api/error/ack` | Read and acknowledge device errors |
+| `/api/reboot`, `/api/reset` | Schedule a reboot or factory reset |
+
+## Setup and Upload
+
+### Requirements
+
+- ESP32-WROOM-class DevKit compatible with the pin mapping above.
+- Arduino IDE with the ESP32 board package, or an equivalent Arduino build environment.
+- A LittleFS upload tool for the contents of `data/`.
+- DS3231 RTC, SH1106 OLED, DS18B20 sensors, WS2812B LED, buzzer, buttons, relay hardware, and a suitable isolated 5 V supply.
+
+### Libraries
+
+Install these libraries before compiling:
+
+- [ESPAsyncWebServer](https://github.com/ESP32Async/ESPAsyncWebServer)
+- [AsyncTCP](https://github.com/ESP32Async/AsyncTCP)
+- [ElegantOTA](https://github.com/ayushsharma82/ElegantOTA)
+- [ArduinoJson](https://arduinojson.org/)
+- [RTClib](https://github.com/adafruit/RTClib)
+- [NTPClient](https://github.com/arduino-libraries/NTPClient)
+- [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library)
+- [OneWire](https://github.com/PaulStoffregen/OneWire)
+- [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library)
+- [Adafruit SH110X](https://github.com/adafruit/Adafruit_SH110X)
+- [Adafruit NeoPixel](https://github.com/adafruit/Adafruit_NeoPixel)
+
+`WiFi`, `Wire`, `SPI`, `Preferences`, `LittleFS`, and `nvs_flash` are supplied by the ESP32 Arduino core.
+
+### First Upload
+
+1. Open `Smart-Aquarium-V4.0.ino` in Arduino IDE. For a different channel count, update `NUM_RELAYS` and the matching `RELAY_PINS` array first.
+2. Select the ESP32 board variant and serial port.
+3. Compile and upload the firmware.
+4. Upload the complete `data/` directory to the device's LittleFS partition.
+5. Restart the controller.
+
+If no Wi-Fi credentials are stored, the controller creates the open access point `Smart-Aquarium` and serves the Wi-Fi Manager page. Connect to that network, open `192.168.4.1`, submit the network SSID and password, and wait for the automatic restart. With saved credentials, the controller attempts station-mode connection for up to 15 seconds. The normal dashboard is available at the device's assigned IP address.
+
+## Persistence
+
+- Relay configuration is stored as `/config/relayN.json` on LittleFS, with one file for each configured relay.
+- Relay names, enabled state, mode, schedule, toggle settings, sensor assignment, and temperature targets are persisted where applicable.
+- Wi-Fi credentials are stored in the `wifi` Preferences namespace.
+- NTP server, custom server, timezone offset, and last update day are stored in the `time` namespace.
+- The temperature-support setting is stored in the `system` namespace.
+- `/api/reset` and the 10-second left-button hold erase the relay files and NVS preferences before rebooting.
+
+## Firmware Structure
+
+The firmware splits work between the Arduino loop and a FreeRTOS task pinned to core 0:
+
+- `loop2()` polls the buttons, updates timer and toggle state machines, checks I2C health, reads DS18B20 sensors, and evaluates schedules and temperature control.
+- `loop()` services ElegantOTA, renders the OLED, emits temperature-fault alarms, performs periodic RTC maintenance, and executes scheduled restarts.
+- The `Relay` class owns per-channel state, configuration persistence, GPIO polarity, scheduling, timers, toggle cycles, and temperature hysteresis.
+
+Polling intervals are approximately 10 ms for task yielding, 2 seconds for sensor and schedule work, 5 seconds for RTC/OLED health checks, and 1 hour for automatic RTC update eligibility. The relay loops use `NUM_RELAYS`, so the same firmware structure scales to the configured channel count.
+
+## Contributing
+
+Issues, hardware feedback, documentation fixes, and pull requests are welcome. Include the board variant, firmware version, wiring changes, and clear reproduction steps when reporting a problem.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for the full license text.
+
+### What the GPLv3 Allows
+
+Under GPLv3, you may use the software for any purpose, study how it works, modify it, and redistribute original or modified copies. You may distribute compiled firmware, but you must follow the GPLv3 source and license obligations, including providing the corresponding source code and preserving copyright and license notices where required. Modified versions distributed to others must remain under GPLv3, and recipients must receive the same freedoms.
+
+You may sell copies or charge for support and services. You may not remove the GPLv3 terms, add restrictions that take away the recipient's freedoms, claim the author's work as your own, or distribute a modified binary without meeting the applicable source-code and notice requirements. The hardware schematics and safety information do not make a mains installation safe or grant permission to use trademarks, third-party libraries, or hardware designs beyond their own licenses.
+
+Copyright (C) 2025 desiFish
