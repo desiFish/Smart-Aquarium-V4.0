@@ -110,6 +110,8 @@ String temperatureReadFailureNames;
 unsigned long otaProgressMillis = 0;
 /** Buffer of accumulated operational errors exposed via the API. */
 String errorBuffer;
+/** Latched RGB alarm state; cleared by a physical button press. */
+volatile bool errorAlarmActive = false;
 /** DS18B20 bus driver used for temperature monitoring. */
 OneWire oneWire(ONE_WIRE_BUS);
 /** DallasTemperature sensor manager instance for the 1-Wire bus. */
@@ -406,38 +408,6 @@ void beep(uint8_t times = 1, uint16_t delayMs = 200)
 }
 
 /**
- * Flashes the status LED in a given color for a number of cycles.
- *
- * @param color One of RED, GREEN, BLUE, YELLOW, or OFF.
- * @param times Number of flashes to emit.
- * @param delayMs Delay in milliseconds between toggles.
- */
-void ledBlink(const String &color, uint8_t times = 1, uint16_t delayMs = 500)
-{
-  uint32_t rgb = 0;
-  if (color == "RED")
-    rgb = statusLed.Color(255, 0, 0);
-  else if (color == "GREEN")
-    rgb = statusLed.Color(0, 255, 0);
-  else if (color == "BLUE")
-    rgb = statusLed.Color(0, 0, 255);
-  else if (color == "YELLOW")
-    rgb = statusLed.Color(255, 255, 0);
-  else if (color == "OFF")
-    rgb = 0;
-
-  for (uint8_t i = 0; i < times; i++)
-  {
-    statusLed.setPixelColor(0, rgb);
-    statusLed.show();
-    delay(delayMs);
-    statusLed.clear();
-    statusLed.show();
-    delay(delayMs);
-  }
-}
-
-/**
  * Appends a formatted error line to the API-visible error buffer.
  *
  * @param message Error text to store.
@@ -447,6 +417,7 @@ void addBufferError(const String &message)
   if (message.isEmpty())
     return;
 
+  errorAlarmActive = true;
   if (!errorBuffer.isEmpty())
     errorBuffer += "\n";
   errorBuffer += message;
@@ -1448,7 +1419,7 @@ void setupWifi()
       if (saved)
       {
         Serial.println("Wifi credentials saved, restarting");
-        request->send(200, "text/plain", "success");
+        request->send(200, "text/plain", "Data saved, restarting");
         restartRequested = true;
         restartAt = millis() + 3000;
       }
@@ -1859,6 +1830,10 @@ void setupServer()
               restartRequested = true;
               queueDisplayMessage("Restarting...\nPlease wait");
               restartAt = millis() + 3000; });
+  server.on("/api/error/ack", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
+              errorAlarmActive = false;
+              request->send(200, "application/json", "{\"success\":true}"); });
   server.on("/api/error", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               JsonDocument doc;
@@ -1902,7 +1877,8 @@ void setup(void)
   digitalWrite(BUZZER_PIN, LOW);
   statusLed.begin();
   statusLed.setBrightness(100);
-  ledBlink("RED", 1);
+  statusLed.setPixelColor(0, statusLed.Color(255, 0, 0));
+  statusLed.show();
   beep(1, 200);
 
   lastButtonPressTime = millis();
@@ -1916,18 +1892,16 @@ void setup(void)
   }
   else
   {
-    // displayPower(true);
     display.setContrast(0);
     display.clearDisplay();
     display.setTextColor(SH110X_WHITE);
     display.setTextSize(1);
     display.setFont(NULL);
-    display.setCursor(7, 10);
-    display.println("Smart Aquarium V4.0");
+    display.setCursor(9, 10);
+    display.println("Smart Aquarium V4");
     display.setCursor(28, 35);
     display.println("Initialising");
     display.display();
-    delay(500);
   }
 
   Serial.println("Initializing LittleFS");
@@ -2037,7 +2011,6 @@ void setup(void)
       &loop2Code,  // Task handle to keep track of created task
       0);          // pin task to core 0
   Serial.println("Setup complete");
-  ledBlink("GREEN", 1);
   beep(1, 200);
 }
 
@@ -2061,6 +2034,7 @@ void loop2(void *pvParameters)
   unsigned long lastButtonCheck = 0;
   unsigned long leftButtonDownSince = 0;
   bool leftButtonWasDown = false;
+  bool buttonsPressed = false;
 
   for (;;)
   {
@@ -2071,6 +2045,7 @@ void loop2(void *pvParameters)
 
       bool leftDown = digitalRead(BUTTON_LEFT) == HIGH;
       bool rightDown = digitalRead(BUTTON_RIGHT) == HIGH;
+      buttonsPressed = leftDown || rightDown;
 
       if (leftDown)
       {
@@ -2091,11 +2066,104 @@ void loop2(void *pvParameters)
         leftButtonWasDown = false;
       }
 
-      if (leftDown || rightDown)
+      if (buttonsPressed)
       {
         Serial.println("[Button] pressed");
+        errorAlarmActive = false;
         lastButtonPressTime = currentMillis;
         markDisplayActivity();
+      }
+    }
+
+    static bool errorLedState = true;
+    static bool resetLedState = false;
+    static bool buttonLedState = false;
+    static bool activityLedOn = false;
+    static unsigned long activityStartedAt = 0;
+    static unsigned long lastActivityLedAt = 0;
+
+    if (resetAll)
+    {
+      if (!resetLedState)
+      {
+        statusLed.setBrightness(100);
+        statusLed.setPixelColor(0, statusLed.Color(0, 0, 255));
+        statusLed.show();
+        resetLedState = true;
+        errorLedState = false;
+        buttonLedState = false;
+        activityLedOn = false;
+      }
+    }
+    else if (resetLedState)
+    {
+      statusLed.setBrightness(100);
+      statusLed.clear();
+      statusLed.show();
+      resetLedState = false;
+      lastActivityLedAt = currentMillis;
+    }
+    else if (errorAlarmActive)
+    {
+      if (activityLedOn || buttonLedState || !errorLedState)
+      {
+        statusLed.setBrightness(100);
+        statusLed.setPixelColor(0, statusLed.Color(255, 0, 0));
+        statusLed.show();
+        buttonLedState = false;
+        activityLedOn = false;
+        errorLedState = true;
+      }
+    }
+    else if (buttonsPressed)
+    {
+      if (!buttonLedState)
+      {
+        statusLed.setBrightness(100);
+        statusLed.setPixelColor(0, statusLed.Color(255, 255, 0));
+        statusLed.show();
+        buttonLedState = true;
+        activityLedOn = false;
+      }
+    }
+    else if (buttonLedState)
+    {
+      statusLed.setBrightness(100);
+      statusLed.clear();
+      statusLed.show();
+      buttonLedState = false;
+      lastActivityLedAt = currentMillis;
+    }
+    else if (activityLedOn)
+    {
+      if (currentMillis - activityStartedAt >= 25UL)
+      {
+        statusLed.setBrightness(100);
+        statusLed.clear();
+        statusLed.show();
+        buttonLedState = false;
+        activityLedOn = false;
+        errorLedState = false;
+        lastActivityLedAt = currentMillis;
+      }
+    }
+    else
+    {
+      if (errorLedState)
+      {
+        statusLed.setBrightness(100);
+        statusLed.clear();
+        statusLed.show();
+        errorLedState = false;
+        lastActivityLedAt = currentMillis;
+      }
+      else if (currentMillis - lastActivityLedAt >= 3500UL)
+      {
+        statusLed.setBrightness(20);
+        statusLed.setPixelColor(0, statusLed.Color(0, 255, 0));
+        statusLed.show();
+        activityLedOn = true;
+        activityStartedAt = currentMillis;
       }
     }
 
@@ -2174,7 +2242,7 @@ void loop(void)
         yield();
         flag = true;
       }
-      if (flag)
+      if (flag && !resetAll)
       {
         dismissDisplayMessage();
         flag = false;

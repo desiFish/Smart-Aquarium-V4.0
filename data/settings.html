@@ -625,7 +625,10 @@
             fetch('/api/error')
                 .then(response => response.json())
                 .then(result => {
-                    if (result.error) alert(`Message: ${result.error}`);
+                    if (result.error) {
+                        alert(`Message: ${result.error}`);
+                        fetch('/api/error/ack', { method: 'POST' }).catch(() => { });
+                    }
                 })
                 .catch(error => console.error('Error fetching device message:', error));
         }
