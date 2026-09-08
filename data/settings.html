@@ -78,7 +78,6 @@
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            display: inline-block;
         }
 
         .connection-status.online .connection-dot {
@@ -94,20 +93,40 @@
         .version-footer {
             margin-top: auto;
             width: 100%;
-            font-size: 0.7rem;
-            color: #666;
+            padding: 14px 0 4px;
+            color: #7d8791;
             text-align: center;
-            background: #121212;
-            padding: 8px 0;
-            border-top: 1px solid #252525;
+            border-top: 1px solid #303840;
             display: flex;
-            flex-direction: column;
-            gap: 4px;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 0.72rem;
+        }
+
+        #versionInfo {
+            padding: 4px 9px;
+            border: 1px solid #3b4650;
+            border-radius: 999px;
+            color: #b8c3cc;
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
         .copyright {
-            font-size: 0.65rem;
-            color: #555;
+            color: #7d8791;
+        }
+
+        .copyright a {
+            color: #9ed8ff;
+            text-decoration: none;
+        }
+
+        .copyright a:hover {
+            color: #2196F3;
+            text-decoration: underline;
         }
 
         .navbar {
@@ -131,14 +150,20 @@
             min-height: 1.2em;
         }
 
-        .time-settings-container {
+        .time-settings-container,
+        .config-container,
+        .settings-container {
             width: 100%;
-            max-width: 900px;
             box-sizing: border-box;
             background: #1e1e1e;
             padding: 1.5rem;
             border-radius: 12px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .time-settings-container,
+        .config-container {
+            max-width: 900px;
         }
 
         .time-settings-grid {
@@ -165,16 +190,6 @@
             margin-top: 14px;
         }
 
-        .config-container {
-            width: 100%;
-            max-width: 900px;
-            box-sizing: border-box;
-            background: #1e1e1e;
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-        }
-
         .config-row {
             display: flex;
             align-items: center;
@@ -194,6 +209,12 @@
                 grid-template-columns: 1fr;
             }
 
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 0;
+            }
+
             .navbar {
                 flex-direction: column;
                 align-items: stretch;
@@ -202,34 +223,6 @@
             .nav-btn,
             .btn-reset {
                 width: 100%;
-                margin-left: 0 !important;
-            }
-        }
-
-        .nav-btn {
-            background: #252525;
-            color: #2196F3;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-        }
-
-        .nav-btn:hover {
-            background: #2196F3;
-            color: white;
-            transform: translateY(-1px);
-        }
-
-        @media (max-width: 600px) {
-            .header {
-                flex-direction: column;
-                gap: 1rem;
-                padding: 0;
             }
 
             .connection-status {
@@ -242,21 +235,36 @@
             }
         }
 
+        .nav-btn,
+        .btn-reset {
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .nav-btn {
+            background: #252525;
+            color: #2196F3;
+        }
+
+        .nav-btn:hover {
+            background: #2196F3;
+            color: white;
+            transform: translateY(-1px);
+        }
+
         .grid-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
             width: 100%;
             max-width: 900px;
-        }
-
-        .settings-container {
-            background: #1e1e1e;
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-            width: 100%;
-            box-sizing: border-box;
         }
 
         .settings-title {
@@ -294,15 +302,6 @@
 
         .btn-reset {
             background: #b71c1c;
-            color: white;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s;
             margin-top: 0;
         }
 
@@ -369,8 +368,8 @@
 
     <footer class="version-footer">
         <span id="versionInfo">Checking version...</span>
-        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a>. All
-            rights reserved.</span>
+        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a> |
+            Made in India 🇮🇳 | ॐ नमो नारायणाय</span>
     </footer>
 
     <script>
@@ -389,14 +388,12 @@
             buttons.forEach(button => {
                 button.disabled = true;
                 button.style.opacity = '0.6';
-                button.style.pointerEvents = 'none';
             });
 
             setTimeout(() => {
                 buttons.forEach(button => {
                     button.disabled = false;
                     button.style.opacity = '';
-                    button.style.pointerEvents = '';
                 });
             }, ACTION_DEBOUNCE_MS);
 
@@ -471,7 +468,7 @@
                     return response.json();
                 })
                 .then(settings => {
-                    if (timeSettingsDirty) return settings;
+                    if (timeSettingsDirty) return;
                     document.getElementById('timezoneInput').value = formatOffset(settings.offset || 0);
                     document.getElementById('timeOffset').textContent = `Offset: ${formatOffset(settings.offset || 0)}`;
                     const select = document.getElementById('ntpServerSelect');
@@ -526,6 +523,7 @@
         let connectionCheckId = 0;
         function checkConnection() {
             const conn = document.getElementById('connectionStatus');
+            const statusText = conn.querySelector('span:last-child');
             const checkId = ++connectionCheckId;
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 1500);
@@ -542,17 +540,17 @@
                     if (checkId !== connectionCheckId) return;
                     if (status.trim() === 'true') {
                         conn.className = 'connection-status online';
-                        conn.querySelector('span:last-child').textContent = 'Online';
+                        statusText.textContent = 'Online';
                     }
                     else {
                         conn.className = 'connection-status offline';
-                        conn.querySelector('span:last-child').textContent = 'Offline';
+                        statusText.textContent = 'Offline';
                     }
                 })
                 .catch(() => {
                     if (checkId !== connectionCheckId) return;
                     conn.className = 'connection-status offline';
-                    conn.querySelector('span:last-child').textContent = 'Offline';
+                    statusText.textContent = 'Offline';
                 })
                 .finally(() => clearTimeout(timeoutId));
         }
@@ -768,6 +766,7 @@
             fetchVersion();
             fetchLEDNames();
         }, 10000);
+
     </script>
 </body>
 

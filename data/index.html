@@ -21,14 +21,6 @@
             gap: 20px;
         }
 
-        .container {
-            background: #1e1e1e;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-            text-align: center;
-        }
-
         .switch {
             position: relative;
             display: inline-block;
@@ -197,11 +189,6 @@
         }
 
         [id^="toggleControl_"] .switch-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 0;
             margin-top: 0.8rem;
         }
 
@@ -215,6 +202,7 @@
             border-radius: 4px;
             width: 120px;
             margin: 0;
+            flex: 0 1 120px;
         }
 
         .btn-set {
@@ -553,36 +541,43 @@
             }
         }
 
-        select {
-            flex: 0 1 120px;
-            margin: 0;
-        }
-
-        .timer-switch-container {
+        .version-footer {
+            margin-top: auto;
+            width: 100%;
+            padding: 14px 0 4px;
+            color: #7d8791;
+            text-align: center;
+            border-top: 1px solid #303840;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            margin-top: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.72rem;
         }
 
-        .version-footer {
-            margin-top: auto;
-            width: 100%;
-            font-size: 0.7rem;
-            color: #666;
-            text-align: center;
-            background: #121212;
-            padding: 8px 0;
-            border-top: 1px solid #252525;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+        #versionInfo {
+            padding: 4px 9px;
+            border: 1px solid #3b4650;
+            border-radius: 999px;
+            color: #b8c3cc;
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
         .copyright {
-            font-size: 0.65rem;
-            color: #555;
+            color: #7d8791;
+        }
+
+        .copyright a {
+            color: #9ed8ff;
+            text-decoration: none;
+        }
+
+        .copyright a:hover {
+            color: #2196F3;
+            text-decoration: underline;
         }
 
         .navbar {
@@ -727,8 +722,8 @@
 
     <footer class="version-footer">
         <span id="versionInfo">Checking version...</span>
-        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a>. All
-            rights reserved.</span>
+        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a> |
+            Made in India 🇮🇳 | ॐ नमो नारायणाय</span>
     </footer>
 
     <script>
@@ -919,7 +914,7 @@
                             <div id="toggleAnimation_${ledId}" class="toggle-timer"><div id="toggleCountdown_${ledId}" class="toggle-countdown">Next ON in 00:00</div></div>
                         </div>
                         <div id="timerControl_${ledId}" class="control-panel timer-control">
-                            <div class="timer-controls"><label>Timer Duration:</label><select id="timerDuration_${ledId}" onchange="updateTimerToggle(${ledId})"><option value="0">No Timer</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option><option value="2700">45 minutes</option></select></div>
+                            <div class="timer-controls"><label>Timer Duration:</label><select id="timerDuration_${ledId}"><option value="0">No Timer</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option><option value="2700">45 minutes</option></select></div>
                             <div id="timerSwitchContainer_${ledId}" class="timer-switch-container"><span class="switch-label">OFF</span><label class="switch"><input type="checkbox" id="timerToggle_${ledId}"><span class="slider"></span></label><span class="switch-label">ON</span></div>
                             <div id="timerAnimation_${ledId}" class="timer-animation"><div id="timerCountdown_${ledId}" class="timer-countdown">00:00</div></div>
                         </div>
@@ -1291,7 +1286,6 @@
         // Function to initialize LED controls
         function setupLED(ledId) {
             const led = {
-                container: document.getElementById(`led${ledId}`),
                 modes: document.querySelectorAll(`input[name="mode_${ledId}"]`),
                 indicator: document.querySelector(`#led${ledId} .status-indicator`),
                 statusText: document.querySelector(`#liveStatus_${ledId}`),
@@ -1308,11 +1302,8 @@
                 timerDuration: document.querySelector(`#timerDuration_${ledId}`),
                 timerSwitch: document.querySelector(`#timerSwitchContainer_${ledId}`),
                 toggleSwitch: document.querySelector(`#toggleSwitch_${ledId}`),
-                toggleOnMinutes: document.querySelector(`#toggleOnMinutes_${ledId}`),
-                toggleOffMinutes: document.querySelector(`#toggleOffMinutes_${ledId}`),
                 temperatureSensor: document.querySelector(`#temperatureSensor_${ledId}`),
-                temperatureTarget: document.querySelector(`#temperatureTarget_${ledId}`),
-                temperatureValue: document.querySelector(`#temperatureValue_${ledId}`)
+                temperatureTarget: document.querySelector(`#temperatureTarget_${ledId}`)
             };
 
             if (temperatureSensorEnabled && ledStates[ledId].enabled) {
@@ -1667,11 +1658,6 @@
             // Start status updates with interval reference
             led.statusInterval = setInterval(() => updateLEDStatus(ledId), 2000);
             updateLEDStatus(ledId);
-
-            // Initial update if starting in manual mode
-            if (led.modes[0].checked) {
-                updateLEDStatus(ledId);
-            }
         }
 
         // Update LED status
