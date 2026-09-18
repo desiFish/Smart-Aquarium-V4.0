@@ -60,7 +60,7 @@ Author: desiFish (https://github.com/desiFish), and the open-source community
 /** Physical relay output pins in board order. */
 const uint8_t RELAY_PINS[NUM_RELAYS] = {32, 33, 25, 26};
 /** Current firmware version string exposed by the web API. Major.Minor.PatchFix*/
-#define SW_VERSION "v1.1.0"
+#define SW_VERSION "v1.1.1"
 
 /** RGB status LED driver instance. */
 Adafruit_NeoPixel statusLed(/*No. of LEDs*/ 1, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -2089,7 +2089,7 @@ void setup(void)
 /**
  * Second-priority task running on core 0, handling time-sensitive device polling.
  * Executes continuously in a loop with the following responsibilities:
- *   1. Button input debouncing and long-press detection for factory reset
+ *   1. Button input debouncing and long-press actions for reset and manual OFF
  *   2. Update relay state machines (timer countdown, toggle cycles)
  *   3. Poll I2C bus health for RTC and OLED devices every 5 seconds
  *   4. Poll temperature sensors and evaluate relay auto-schedule/temperature modes every 2 seconds
@@ -2106,7 +2106,11 @@ void loop2(void *pvParameters)
   unsigned long lastSensorScan = 0;
   unsigned long lastButtonCheck = 0;
   unsigned long leftButtonDownSince = 0;
+  unsigned long rightButtonDownSince = 0;
   bool leftButtonWasDown = false;
+  bool rightButtonWasDown = false;
+  bool leftLongPressHandled = false;
+  bool rightLongPressHandled = false;
   bool buttonsPressed = false;
   bool previousUseTempSensor = useTempSensor;
 
@@ -2127,17 +2131,40 @@ void loop2(void *pvParameters)
         {
           leftButtonWasDown = true;
           leftButtonDownSince = currentMillis;
+          leftLongPressHandled = false;
         }
-        else if ((currentMillis - leftButtonDownSince) >= 10000UL)
+        else if (!leftLongPressHandled && (currentMillis - leftButtonDownSince) >= 10000UL)
         {
           Serial.println("[Button] LEFT held 10s -> reset all settings");
           resetAllSettings();
-          leftButtonDownSince = currentMillis;
+          leftLongPressHandled = true;
         }
       }
       else
       {
         leftButtonWasDown = false;
+      }
+
+      if (rightDown)
+      {
+        if (!rightButtonWasDown)
+        {
+          rightButtonWasDown = true;
+          rightButtonDownSince = currentMillis;
+          rightLongPressHandled = false;
+        }
+        else if (!rightLongPressHandled && (currentMillis - rightButtonDownSince) >= 5000UL)
+        {
+          Serial.println("[Button] RIGHT held 5s -> set all relays to manual OFF");
+          for (uint8_t i = 0; i < NUM_RELAYS; i++)
+            relays[i]->stopTemperatureControl();
+          queueDisplayMessage("All Relays Manual\nOFF");
+          rightLongPressHandled = true;
+        }
+      }
+      else
+      {
+        rightButtonWasDown = false;
       }
 
       if (buttonsPressed)

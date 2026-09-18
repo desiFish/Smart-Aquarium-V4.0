@@ -182,7 +182,7 @@ The WS2812B is powered from 3.3 V, as shown in the Main schematic. The buzzer al
 
 The buzzer uses 200 ms on/off timing by default; the OLED recovery alert uses a shorter 150 ms timing. Physical button input clears the latched RGB error alarm. OLED messages remain queued until a button is pressed to dismiss them. The OLED normally powers down after 30 seconds without button activity and wakes on the next button press.
 
-The left button starts a factory reset when held for 10 seconds. A reset removes relay JSON files and erases NVS preferences, then reboots after five seconds. The Settings page also provides Reset All, Reboot, time update, and error acknowledgement actions.
+The left button starts a factory reset when held for 10 seconds. A reset removes relay JSON files and erases NVS preferences, then reboots after five seconds. The right button sets every relay to manual mode and turns them off when held for 10 seconds. Both actions trigger once per hold. The Settings page also provides Reset All, Reboot, time update, and error acknowledgement actions.
 
 ## Web Interface and API
 
