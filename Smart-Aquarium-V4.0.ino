@@ -59,8 +59,8 @@ Author: desiFish (https://github.com/desiFish), and the open-source community
 #define RELAY_ACTIVE_LOW true
 /** Physical relay output pins in board order. */
 const uint8_t RELAY_PINS[NUM_RELAYS] = {32, 33, 25, 26};
-/** Current firmware version string exposed by the web API. */
-#define SW_VERSION "v0.5.2"
+/** Current firmware version string exposed by the web API. Major.Minor.PatchFix*/
+#define SW_VERSION "v1.0.0"
 
 /** RGB status LED driver instance. */
 Adafruit_NeoPixel statusLed(/*No. of LEDs*/ 1, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -122,6 +122,10 @@ DeviceAddress sensorAddresses[8];
 uint8_t sensorCount = 0;
 /** Last temperatures read for each discovered sensor. */
 float sensorTemperatures[8] = {NAN};
+/** Discards the first temperature batch after the 1-Wire bus is initialized. */
+bool sensorReadWarmupPending = false;
+/** Number of consecutive invalid readings required before raising a sensor alarm. */
+const uint8_t TEMPERATURE_FAILURE_CONFIRMATIONS = 3;
 
 /** I2C address of the SH1106 OLED display module. */
 #define i2c_Address 0x3c
@@ -380,12 +384,22 @@ void drawStatusScreen()
   }
   drawWiFiSignal(signalBars);
 
-  display.setCursor(10, (SCREEN_HEIGHT / 2) - 4);
+  display.setCursor(10, 20);
   display.print("IP: ");
   if (WiFi.status() == WL_CONNECTED)
     display.print(WiFi.localIP().toString());
   else
     display.print("Not connected");
+
+  if (sensorCount > 0)
+  {
+    display.drawRect(2, 53, 9, 11, SH110X_WHITE);
+    display.setCursor(4, 55);
+    display.print("T");
+    display.setCursor(13, 55);
+    display.print(": ");
+    display.print(sensorCount);
+  }
 
   display.display();
 }
@@ -660,6 +674,7 @@ bool autoTimeUpdate()
            updatedTime.year(), updatedTime.month(), updatedTime.day(),
            updatedTime.hour(), updatedTime.minute(), updatedTime.second());
   addBufferError(message);
+  queueDisplayMessage(message);
   Serial.printf("[RTC] %s\n", message);
   return true;
 }
@@ -740,6 +755,7 @@ private:
   float currentTemperature = NAN;
   bool sensorErrorReported = false;
   bool temperatureReadFailed = false;
+  uint8_t temperatureReadFailureStreak = 0;
 
   String path() const { return "/config/relay" + String(number) + ".json"; }
 
@@ -1225,6 +1241,25 @@ public:
       temperatureReadFailureNames = "";
   }
 
+  /** Clears a latched failure when this relay's assigned sensor is healthy again. */
+  void clearTemperatureReadFailureIfHealthy()
+  {
+    if (!temperatureReadFailed || sensorAddress.isEmpty())
+      return;
+
+    for (uint8_t i = 0; i < sensorCount; i++)
+    {
+      if (addressText(sensorAddresses[i]) == sensorAddress &&
+          sensorTemperatures[i] != DEVICE_DISCONNECTED_C && !isnan(sensorTemperatures[i]))
+      {
+        temperatureReadFailureStreak = 0;
+        clearTemperatureReadFailure();
+        sensorErrorReported = false;
+        return;
+      }
+    }
+  }
+
   /**
    * Reads the current temperature from the assigned sensor and updates the relay output state
    * based on the target temperature and hysteresis. Called periodically by loop2 when the relay
@@ -1251,18 +1286,23 @@ public:
     if (sensorIndex < 0)
     {
       currentTemperature = NAN;
+      if (++temperatureReadFailureStreak < TEMPERATURE_FAILURE_CONFIRMATIONS)
+        return;
       if (!sensorErrorReported)
       {
         addBufferError("DS18B20: Relay " + String(number) + " sensor not found.");
         Serial.printf("[Relay %u] ERROR: Assigned DS18B20 sensor not found\n", number);
         sensorErrorReported = true;
       }
+      handleTemperatureReadFailure();
       return;
     }
 
     currentTemperature = sensorTemperatures[sensorIndex];
     if (currentTemperature == DEVICE_DISCONNECTED_C || isnan(currentTemperature))
     {
+      if (++temperatureReadFailureStreak < TEMPERATURE_FAILURE_CONFIRMATIONS)
+        return;
       if (!sensorErrorReported)
       {
         addBufferError("DS18B20: Relay " + String(number) + " sensor read failed.");
@@ -1272,6 +1312,7 @@ public:
       handleTemperatureReadFailure();
       return;
     }
+    temperatureReadFailureStreak = 0;
     clearTemperatureReadFailure();
     sensorErrorReported = false;
 
@@ -1735,6 +1776,14 @@ void setupServer()
                 return;
               }
               useTempSensor = input["useTempSensor"].as<bool>();
+              if (!useTempSensor)
+              {
+                for (uint8_t i = 0; i < NUM_RELAYS; i++)
+                {
+                  if (relays[i]->getMode() == "temperature")
+                    relays[i]->stopTemperatureControl();
+                }
+              }
               saveSystemConfig();
               request->send(200, "application/json", "{\"success\":true,\"useTempSensor\":" + String(useTempSensor ? "true" : "false") + "}"); });
   server.on("/api/time-settings", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -1800,7 +1849,6 @@ void setupServer()
                 address.toUpperCase();
                 JsonObject sensor = list.add<JsonObject>();
                 sensor["address"] = address;
-                sensor["temperature"] = sensorTemperatures[i];
               }
               doc["count"] = sensorCount;
               String response = jsonResponse(doc);
@@ -1925,6 +1973,7 @@ void setup(void)
   {
     Serial.printf("[DS18B20] Searching on GPIO %u\n", ONE_WIRE_BUS);
     sensors.begin();
+    sensorReadWarmupPending = true;
     sensorCount = min(static_cast<uint8_t>(sensors.getDeviceCount()), static_cast<uint8_t>(8));
     for (uint8_t i = 0; i < sensorCount; i++)
     {
@@ -2035,6 +2084,7 @@ void loop2(void *pvParameters)
 {
   unsigned long lastScheduleCheck = 0;
   unsigned long lastRtcHealthCheck = 0;
+  unsigned long lastSensorScan = 0;
   unsigned long lastButtonCheck = 0;
   unsigned long leftButtonDownSince = 0;
   bool leftButtonWasDown = false;
@@ -2074,6 +2124,7 @@ void loop2(void *pvParameters)
       {
         Serial.println("[Button] pressed");
         errorAlarmActive = false;
+        temperatureReadFailureAlarm = false;
         lastButtonPressTime = currentMillis;
         markDisplayActivity();
       }
@@ -2182,16 +2233,48 @@ void loop2(void *pvParameters)
       checkI2CHealth();
     }
 
+    // Refresh the discovered DS18B20 list so removed sensors are detected.
+    if (useTempSensor)
+    {
+      if (currentMillis - lastSensorScan >= 10000UL)
+      {
+        lastSensorScan = currentMillis;
+        Serial.printf("[DS18B20] Searching on GPIO %u\n", ONE_WIRE_BUS);
+        // begin() refreshes DallasTemperature's cached device count.
+        sensors.begin();
+        sensorReadWarmupPending = true;
+        sensorCount = min(static_cast<uint8_t>(sensors.getDeviceCount()), static_cast<uint8_t>(8));
+        for (uint8_t i = 0; i < sensorCount; i++)
+        {
+          if (sensors.getAddress(sensorAddresses[i], i))
+          {
+            Serial.printf("[DS18B20] Sensor %u found: ", i + 1);
+            for (uint8_t byteIndex = 0; byteIndex < 8; byteIndex++)
+            {
+              if (sensorAddresses[i][byteIndex] < 16)
+                Serial.print("0");
+              Serial.print(sensorAddresses[i][byteIndex], HEX);
+            }
+            Serial.println();
+          }
+        }
+        Serial.printf("[DS18B20] %u sensor(s) currently detected\n", sensorCount);
+      }
+    }
+
     // Check auto relay states and the RTC at most once every two seconds.
 
     if (currentMillis - lastScheduleCheck >= 2000)
     {
       lastScheduleCheck = currentMillis;
+      bool discardTemperatureRead = false;
       if (sensorCount > 0)
       {
         sensors.requestTemperatures();
         for (uint8_t i = 0; i < sensorCount; i++)
           sensorTemperatures[i] = sensors.getTempC(sensorAddresses[i]);
+        discardTemperatureRead = sensorReadWarmupPending;
+        sensorReadWarmupPending = false;
       }
       for (uint8_t i = 0; i < NUM_RELAYS; i++)
       {
@@ -2201,7 +2284,11 @@ void loop2(void *pvParameters)
           if (scheduled != relays[i]->getState())
             relays[i]->setScheduledState(scheduled);
         }
-        relays[i]->updateTemperature();
+        if (!discardTemperatureRead)
+        {
+          relays[i]->clearTemperatureReadFailureIfHealthy();
+          relays[i]->updateTemperature();
+        }
       }
     }
 

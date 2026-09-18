@@ -768,6 +768,8 @@
             setActiveModeIndicator(ledId, mode);
             document.querySelectorAll(`#led${ledId} .control-panel`).forEach(panel => panel.classList.remove('active'));
             modePanel.classList.add('active');
+            if (mode !== 'temperature')
+                document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
             document.querySelector(`#setTemperature_${ledId}`).textContent = mode === 'temperature'
                 ? 'Stop Temperature Control'
                 : 'Start Temperature Control';
@@ -801,10 +803,12 @@
                 if (currentMode === 'temperature') {
                     const manualRadio = document.getElementById(`modeManual_${ledId}`);
                     if (manualRadio) manualRadio.checked = true;
+                    setActiveModeIndicator(ledId, 'manual');
                     const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
                     panels.forEach(panel => panel.classList.remove('active'));
                     const manualPanel = document.getElementById(`manualControl_${ledId}`);
                     if (manualPanel) manualPanel.classList.add('active');
+                    document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
                 }
             });
         }
@@ -848,13 +852,15 @@
                     return response.json();
                 })
                 .then(config => {
+                    const previousTemperatureSensorEnabled = temperatureSensorEnabled;
                     temperatureSensorEnabled = config.useTempSensor !== false;
                     applyTemperatureModeAvailability();
                     applyAutoModeAvailability();
+                    if (previousTemperatureSensorEnabled !== temperatureSensorEnabled)
+                        Object.keys(lastServerModes).forEach(ledId => delete lastServerModes[ledId]);
                 })
                 .catch(error => {
                     console.error('Error fetching system config:', error);
-                    temperatureSensorEnabled = true;
                     applyTemperatureModeAvailability();
                     applyAutoModeAvailability();
                 });
@@ -1257,17 +1263,24 @@
 
         let availableSensors = [];
         function fetchTemperatureSensors() {
-            return fetch('/api/sensors')
+            return fetch('/api/sensors', { cache: 'no-store' })
                 .then(response => response.json())
                 .then(result => {
-                    availableSensors = result.sensors || [];
+                    const nextSensors = result.sensors || [];
+                    const sensorListChanged = nextSensors.map(sensor => sensor.address).join(',') !==
+                        availableSensors.map(sensor => sensor.address).join(',');
+                    availableSensors = nextSensors;
+                    if (!sensorListChanged) return;
+
                     relayIds.forEach(ledId => {
                         const select = document.querySelector(`#temperatureSensor_${ledId}`);
+                        if (!select) return;
+                        const selectedSensor = select.value;
                         select.innerHTML = '';
                         const placeholder = document.createElement('option');
                         placeholder.value = '';
                         placeholder.textContent = availableSensors.length ? 'Select a sensor' : 'No sensors found';
-                        placeholder.selected = true;
+                        placeholder.selected = !availableSensors.some(sensor => sensor.address === selectedSensor);
                         placeholder.disabled = availableSensors.length > 0;
                         select.appendChild(placeholder);
                         availableSensors.forEach(sensor => {
@@ -1276,11 +1289,11 @@
                             option.textContent = `Sensor ${sensor.address.slice(-4)}`;
                             select.appendChild(option);
                         });
+                        if (availableSensors.some(sensor => sensor.address === selectedSensor))
+                            select.value = selectedSensor;
                     });
                 })
-                .catch(() => {
-                    availableSensors = [];
-                });
+                .catch(error => console.error('Error fetching temperature sensors:', error));
         }
 
         // Function to initialize LED controls
@@ -1330,6 +1343,7 @@
                             setActiveModeIndicator(ledId, 'manual');
                             Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                             led.panels.manual.classList.add('active');
+                            document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
                             updateLEDStatus(ledId);
                         })
                         .catch(error => {
@@ -1375,6 +1389,7 @@
 
                     Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
                     led.panels[mode.value].classList.add('active');
+                    document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
                 };
             });
 
@@ -1686,7 +1701,7 @@
                     const serverModeChanged = lastServerModes[ledId] !== mode;
                     lastServerModes[ledId] = mode;
                     if (serverModeChanged) {
-                        setModeUI(ledId, mode);
+                        setModeUI(ledId, !temperatureSensorEnabled && mode === 'temperature' ? 'manual' : mode);
                     }
                     disableToggle.checked = !systemState.enabled;
                     controls.forEach(panel => {
@@ -1699,7 +1714,7 @@
                         statusText.textContent = 'Status: Disabled';
                         return null;
                     }
-                    if (temperatureSensorEnabled) {
+                    if (temperatureSensorEnabled && mode === 'temperature') {
                         const tempController = new AbortController();
                         const tempTimeoutId = setTimeout(() => tempController.abort(), 2000);
                         fetch(`/api/led${ledId}/temperature?check=${Date.now()}`, { cache: 'no-store', signal: tempController.signal })
@@ -1862,6 +1877,10 @@
             setInterval(checkConnection, 3000);
             setInterval(fetchError, 3000);
             setInterval(fetchRtcData, 15000);
+            setInterval(fetchSystemConfig, 10000);
+            setInterval(() => {
+                if (temperatureSensorEnabled) fetchTemperatureSensors();
+            }, 10000);
             checkConnection();
             fetchError();
             fetchVersion();
