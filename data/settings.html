@@ -245,6 +245,12 @@
             height: 18px;
         }
 
+        .config-row label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         @media (max-width: 600px) {
             .time-settings-grid {
                 grid-template-columns: 1fr;
@@ -339,6 +345,14 @@
 
         .btn-set:hover {
             background: #1976D2;
+        }
+
+        .btn-set:disabled,
+        .btn-set:disabled:hover {
+            background: #5a5a5a;
+            color: #bdbdbd;
+            cursor: not-allowed;
+            opacity: 0.65;
         }
 
         .firmware-update {
@@ -473,10 +487,13 @@
 
     <section class="config-container">
         <h3 class="settings-title">CONFIGURATIONS</h3>
-        <label class="config-row" for="useTemperatureSensors">
-            <input id="useTemperatureSensors" type="checkbox">
-            <span>Use temperature sensors</span>
-        </label>
+        <div class="config-row">
+            <label for="useTemperatureSensors">
+                <input id="useTemperatureSensors" type="checkbox">
+                <span>Use temperature sensors</span>
+            </label>
+            <button id="scanSensors" class="btn-set" type="button" disabled>Scan Sensors</button>
+        </div>
     </section>
 
     <div class="settings-data-actions">
@@ -767,10 +784,12 @@
                 .then(response => response.json())
                 .then(config => {
                     document.getElementById('useTemperatureSensors').checked = config.useTempSensor !== false;
+                    updateSensorScanButton();
                 })
                 .catch(error => {
                     console.error('Error fetching system config:', error);
-                    document.getElementById('useTemperatureSensors').checked = true;
+                    document.getElementById('useTemperatureSensors').checked = false;
+                    updateSensorScanButton();
                 })
                 .finally(() => {
                     systemConfigRequestInFlight = false;
@@ -782,6 +801,7 @@
             if (!applyActionDebounce([toggle])) return;
 
             const enabled = toggle.checked;
+            updateSensorScanButton();
             fetch('/api/system/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -804,6 +824,30 @@
         }
 
         document.getElementById('useTemperatureSensors').addEventListener('change', saveSystemConfig);
+
+        function updateSensorScanButton() {
+            document.getElementById('scanSensors').disabled = !document.getElementById('useTemperatureSensors').checked;
+        }
+
+        function scanSensors() {
+            const button = document.getElementById('scanSensors');
+            if (!document.getElementById('useTemperatureSensors').checked) return;
+            if (!applyActionDebounce([button])) return;
+
+            fetch('/api/sensors/scan', { method: 'POST' })
+                .then(response => response.json().then(result => ({ ok: response.ok, result })))
+                .then(({ ok, result }) => {
+                    if (!ok || result.success !== true)
+                        throw new Error(result.error || 'Sensor scan request failed');
+                    alert('Successfully requested a sensor scan.');
+                })
+                .catch(error => {
+                    console.error('Error requesting sensor scan:', error);
+                    alert(`Sensor scan error: ${error.message}`);
+                });
+        }
+
+        document.getElementById('scanSensors').addEventListener('click', scanSensors);
 
         async function fetchRtcData() {
             try {
