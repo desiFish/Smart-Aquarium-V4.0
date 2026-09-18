@@ -564,6 +564,11 @@
             font-size: 0.68rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
+            text-decoration: none;
+        }
+
+        #versionInfo:hover {
+            text-decoration: none;
         }
 
         .copyright {
@@ -721,8 +726,10 @@
     </div>
 
     <footer class="version-footer">
-        <span id="versionInfo">Checking version...</span>
-        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a> |
+        <a id="versionInfo" href="https://github.com/desiFish/Smart-Aquarium-V4.0/releases/latest" target="_blank"
+            rel="noopener">Checking version...</a>
+        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish" target="_blank"
+                rel="noopener">desiFish</a> |
             Made in India 🇮🇳 | ॐ नमो नारायणाय</span>
     </footer>
 
@@ -734,6 +741,8 @@
         const ledStatusLocks = {};  // Per-relay locks to prevent overlapping requests
         const lastServerModes = {};
         let errorCheckInFlight = false;  // Prevent overlapping error checks
+        let systemConfigRequestInFlight = false;
+        let sensorListRequestInFlight = false;
         let connectionCheckId = 0;  // Cancellation token for connection checks
 
         function setActiveModeIndicator(ledId, mode) {
@@ -757,17 +766,22 @@
             });
         }
 
+        function showRelayPanel(ledId, mode) {
+            const panel = document.querySelector(`#${mode}Control_${ledId}`);
+            if (!panel) return;
+            document.querySelectorAll(`#led${ledId} .control-panel`).forEach(item => item.classList.remove('active'));
+            panel.classList.add('active');
+        }
+
         function setModeUI(ledId, mode) {
             if (!getValidModes().includes(mode)) mode = 'manual';
 
             const modeRadio = document.querySelector(`#mode${mode.charAt(0).toUpperCase() + mode.slice(1)}_${ledId}`);
-            const modePanel = document.querySelector(`#${mode}Control_${ledId}`);
-            if (!modeRadio || !modePanel) return;
+            if (!modeRadio) return;
 
             modeRadio.checked = true;
             setActiveModeIndicator(ledId, mode);
-            document.querySelectorAll(`#led${ledId} .control-panel`).forEach(panel => panel.classList.remove('active'));
-            modePanel.classList.add('active');
+            showRelayPanel(ledId, mode);
             if (mode !== 'temperature')
                 document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
             document.querySelector(`#setTemperature_${ledId}`).textContent = mode === 'temperature'
@@ -804,10 +818,7 @@
                     const manualRadio = document.getElementById(`modeManual_${ledId}`);
                     if (manualRadio) manualRadio.checked = true;
                     setActiveModeIndicator(ledId, 'manual');
-                    const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
-                    panels.forEach(panel => panel.classList.remove('active'));
-                    const manualPanel = document.getElementById(`manualControl_${ledId}`);
-                    if (manualPanel) manualPanel.classList.add('active');
+                    showRelayPanel(ledId, 'manual');
                     document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
                 }
             });
@@ -837,15 +848,14 @@
                 if (currentMode === 'auto') {
                     const manualRadio = document.getElementById(`modeManual_${ledId}`);
                     if (manualRadio) manualRadio.checked = true;
-                    const panels = document.querySelectorAll(`#led${ledId} .control-panel`);
-                    panels.forEach(panel => panel.classList.remove('active'));
-                    const manualPanel = document.getElementById(`manualControl_${ledId}`);
-                    if (manualPanel) manualPanel.classList.add('active');
+                    showRelayPanel(ledId, 'manual');
                 }
             });
         }
 
         function fetchSystemConfig() {
+            if (systemConfigRequestInFlight) return Promise.resolve();
+            systemConfigRequestInFlight = true;
             return fetch('/api/system/config', { cache: 'no-store' })
                 .then(response => {
                     if (!response.ok) throw new Error('System config request failed');
@@ -863,6 +873,9 @@
                     console.error('Error fetching system config:', error);
                     applyTemperatureModeAvailability();
                     applyAutoModeAvailability();
+                })
+                .finally(() => {
+                    systemConfigRequestInFlight = false;
                 });
         }
 
@@ -1137,11 +1150,8 @@
 
                     // Switch to toggle mode and show panel
                     const modeSelector = document.querySelector(`#modeToggle_${ledId}`);
-                    const togglePanel = document.querySelector(`#toggleControl_${ledId}`);
-
                     modeSelector.checked = true;
-                    document.querySelectorAll(`#led${ledId} .control-panel`).forEach(p => p.classList.remove('active'));
-                    togglePanel.classList.add('active');
+                    showRelayPanel(ledId, 'toggle');
 
                     // Set on/off minutes and toggle
                     const onMinutesInput = document.querySelector(`#toggleOnMinutes_${ledId}`);
@@ -1238,11 +1248,8 @@
 
                     // Switch to timer mode and show panel
                     const modeSelector = document.querySelector(`#modeTimer_${ledId}`);
-                    const timerPanel = document.querySelector(`#timerControl_${ledId}`);
-
                     modeSelector.checked = true;
-                    document.querySelectorAll(`#led${ledId} .control-panel`).forEach(p => p.classList.remove('active'));
-                    timerPanel.classList.add('active');
+                    showRelayPanel(ledId, 'timer');
 
                     // Set duration and toggle
                     const durationSelect = document.querySelector(`#timerDuration_${ledId}`);
@@ -1263,6 +1270,8 @@
 
         let availableSensors = [];
         function fetchTemperatureSensors() {
+            if (sensorListRequestInFlight) return Promise.resolve();
+            sensorListRequestInFlight = true;
             return fetch('/api/sensors', { cache: 'no-store' })
                 .then(response => response.json())
                 .then(result => {
@@ -1293,7 +1302,10 @@
                             select.value = selectedSensor;
                     });
                 })
-                .catch(error => console.error('Error fetching temperature sensors:', error));
+                .catch(error => console.error('Error fetching temperature sensors:', error))
+                .finally(() => {
+                    sensorListRequestInFlight = false;
+                });
         }
 
         // Function to initialize LED controls
@@ -1341,8 +1353,7 @@
                             temperatureButton.textContent = 'Start Temperature Control';
                             led.modes.forEach(mode => mode.checked = mode.value === 'manual');
                             setActiveModeIndicator(ledId, 'manual');
-                            Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
-                            led.panels.manual.classList.add('active');
+                            showRelayPanel(ledId, 'manual');
                             document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
                             updateLEDStatus(ledId);
                         })
@@ -1371,8 +1382,7 @@
                     .then(() => {
                         led.modes.forEach(mode => mode.checked = mode.value === 'temperature');
                         setActiveModeIndicator(ledId, 'temperature');
-                        Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
-                        led.panels.temperature.classList.add('active');
+                        showRelayPanel(ledId, 'temperature');
                         document.querySelector(`#setTemperature_${ledId}`).textContent = 'Stop Temperature Control';
                         alert('Temperature control saved');
                     })
@@ -1387,8 +1397,7 @@
                 mode.onchange = () => {
                     if (!ledStates[ledId].enabled) return;
 
-                    Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
-                    led.panels[mode.value].classList.add('active');
+                    showRelayPanel(ledId, mode.value);
                     document.querySelector(`#temperatureValue_${ledId}`).textContent = 'Temperature: --';
                 };
             });
@@ -1436,8 +1445,7 @@
                             setTimeBtn.textContent = 'Start Schedule';
                             led.modes.forEach(mode => mode.checked = mode.value === 'manual');
                             setActiveModeIndicator(ledId, 'manual');
-                            Object.values(led.panels).forEach(panel => panel.classList.remove('active'));
-                            led.panels.manual.classList.add('active');
+                            showRelayPanel(ledId, 'manual');
                             updateLEDStatus(ledId);
                         })
                         .catch(error => {

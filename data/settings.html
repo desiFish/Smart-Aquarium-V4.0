@@ -113,6 +113,47 @@
             font-size: 0.68rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
+            text-decoration: none;
+        }
+
+        #versionInfo:hover {
+            text-decoration: none;
+        }
+
+        #versionCheckResult {
+            display: none;
+            flex-basis: 100%;
+            width: 100%;
+            padding: 6px 12px;
+            box-sizing: border-box;
+            border: 1px solid #3b4650;
+            border-radius: 999px;
+            color: #b8c3cc;
+            text-align: center;
+            min-height: 1.2em;
+            background: #252525;
+        }
+
+        #versionCheckResult:not(:empty) {
+            display: block;
+        }
+
+        #versionCheckResult.update-available {
+            border-color: #f9a825;
+            color: #ffd54f;
+            background: #4a3510;
+        }
+
+        #versionCheckResult.up-to-date {
+            border-color: #43a047;
+            color: #81c784;
+            background: #18351f;
+        }
+
+        #versionCheckResult.newer-installed {
+            border-color: #42a5f5;
+            color: #90caf9;
+            background: #15344f;
         }
 
         .copyright {
@@ -439,21 +480,27 @@
     </section>
 
     <div class="settings-data-actions">
+        <button id="checkVersion" class="btn-set" type="button">Check for Updates</button>
         <button class="btn-set" type="button" onclick="window.location.href='/update'">Firmware Update</button>
         <button id="backupSettings" class="btn-set" type="button">Backup</button>
         <button id="restoreSettings" class="btn-set" type="button">Restore</button>
         <input id="restoreFile" type="file" accept="application/json,.json" hidden>
+        <div id="versionCheckResult" role="status" aria-live="polite"></div>
     </div>
 
     <footer class="version-footer">
-        <span id="versionInfo">Checking version...</span>
-        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish/Smart-Aquarium-V4.0">desiFish</a> |
+        <a id="versionInfo" href="https://github.com/desiFish/Smart-Aquarium-V4.0/releases/latest" target="_blank"
+            rel="noopener">Checking version...</a>
+        <span class="copyright">&copy; 2025 <a href="https://github.com/desiFish" target="_blank"
+                rel="noopener">desiFish</a> |
             Made in India 🇮🇳 | ॐ नमो नारायणाय</span>
     </footer>
 
     <script>
         let relayIds = [];
         let timeSettingsDirty = false;
+        let timeSettingsRequestInFlight = false;
+        let systemConfigRequestInFlight = false;
         const ACTION_DEBOUNCE_MS = 1000;
         let actionDebounceUntil = 0;
 
@@ -541,6 +588,8 @@
         }
 
         function fetchTimeSettings() {
+            if (timeSettingsRequestInFlight) return Promise.resolve();
+            timeSettingsRequestInFlight = true;
             return fetch(`/api/time-settings?check=${Date.now()}`, { cache: 'no-store' })
                 .then(response => {
                     if (!response.ok) throw new Error('Time settings request failed');
@@ -561,6 +610,9 @@
                     select.value = settings.ntpServer || 'pool.ntp.org';
                     document.getElementById('customNtpServer').value = settings.customServer || '';
                     updateCustomNtpVisibility();
+                })
+                .finally(() => {
+                    timeSettingsRequestInFlight = false;
                 });
         }
 
@@ -649,8 +701,69 @@
                 });
         }
 
+        function compareVersions(installedVersion, currentVersion) {
+            const parseVersion = version => (version.match(/\d+/g) || []).map(Number);
+            const installed = parseVersion(installedVersion);
+            const current = parseVersion(currentVersion);
+            for (let i = 0; i < Math.max(installed.length, current.length); i++) {
+                const installedPart = installed[i] || 0;
+                const currentPart = current[i] || 0;
+                if (installedPart !== currentPart)
+                    return currentPart > installedPart ? 1 : -1;
+            }
+            return 0;
+        }
+
+        function checkForUpdates() {
+            const button = document.getElementById('checkVersion');
+            const result = document.getElementById('versionCheckResult');
+            button.disabled = true;
+            result.className = '';
+            result.textContent = 'Checking current version...';
+
+            Promise.all([
+                fetch('/api/version', { cache: 'no-store' }).then(response => {
+                    if (!response.ok) throw new Error('Installed version request failed');
+                    return response.text();
+                }),
+                fetch('https://img.shields.io/github/v/release/desiFish/Smart-Aquarium-V4.0?cacheSeconds=60', { cache: 'no-store' })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Repository version request failed');
+                        return response.text();
+                    })
+                    .then(badge => {
+                        const match = badge.match(/aria-label="release: ([^"]+)"/);
+                        if (!match) throw new Error('Repository version was not found');
+                        return match[1];
+                    })
+            ])
+                .then(([installedVersion, currentVersion]) => {
+                    const comparison = compareVersions(installedVersion, currentVersion);
+                    if (comparison > 0) {
+                        result.className = 'update-available';
+                        result.textContent = `Update available: ${currentVersion} (installed ${installedVersion})`;
+                    } else if (comparison === 0) {
+                        result.className = 'up-to-date';
+                        result.textContent = `You are up to date: ${installedVersion}`;
+                    } else {
+                        result.className = 'newer-installed';
+                        result.textContent = `Installed version ${installedVersion} is newer than repository version ${currentVersion}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking for firmware updates:', error);
+                    result.className = '';
+                    result.textContent = 'Could not check for updates.';
+                })
+                .finally(() => {
+                    button.disabled = false;
+                });
+        }
+
         function fetchSystemConfig() {
-            fetch('/api/system/config')
+            if (systemConfigRequestInFlight) return Promise.resolve();
+            systemConfigRequestInFlight = true;
+            return fetch('/api/system/config')
                 .then(response => response.json())
                 .then(config => {
                     document.getElementById('useTemperatureSensors').checked = config.useTempSensor !== false;
@@ -658,6 +771,9 @@
                 .catch(error => {
                     console.error('Error fetching system config:', error);
                     document.getElementById('useTemperatureSensors').checked = true;
+                })
+                .finally(() => {
+                    systemConfigRequestInFlight = false;
                 });
         }
 
@@ -980,6 +1096,7 @@
             }
         }
 
+        document.getElementById('checkVersion').addEventListener('click', checkForUpdates);
         document.getElementById('backupSettings').addEventListener('click', backupSettings);
         document.getElementById('restoreSettings').addEventListener('click', () => {
             document.getElementById('restoreFile').click();
@@ -1011,7 +1128,6 @@
             fetchRelayCount();
             fetchTimeSettings();
             fetchSystemConfig();
-            fetchVersion();
             fetchLEDNames();
         }, 10000);
 

@@ -218,6 +218,7 @@ void queueDisplayMessage(const String &message)
   if (message.isEmpty())
     return;
 
+  errorAlarmActive = true;
   if (activeDisplayMessage == message)
     return;
 
@@ -431,7 +432,6 @@ void addBufferError(const String &message)
   if (message.isEmpty())
     return;
 
-  errorAlarmActive = true;
   if (!errorBuffer.isEmpty())
     errorBuffer += "\n";
   errorBuffer += message;
@@ -674,7 +674,6 @@ bool autoTimeUpdate()
            updatedTime.year(), updatedTime.month(), updatedTime.day(),
            updatedTime.hour(), updatedTime.minute(), updatedTime.second());
   addBufferError(message);
-  queueDisplayMessage(message);
   Serial.printf("[RTC] %s\n", message);
   return true;
 }
@@ -1173,8 +1172,20 @@ public:
     sensorAddress = normalizedAddress;
     targetTemperature = target;
     sensorErrorReported = false;
+    temperatureReadFailureStreak = 0;
+    clearTemperatureReadFailure();
     Serial.printf("[Relay %u] Temperature control: sensor=%s, target=%.2f C, hysteresis=+/- %.2f C\n",
                   number, sensorAddress.c_str(), targetTemperature, TEMPERATURE_HYSTERESIS);
+    save();
+  }
+
+  /** Removes the failed sensor assignment while preserving the active failure alert. */
+  void clearTemperatureSensorAssignment()
+  {
+    sensorAddress = "";
+    currentTemperature = NAN;
+    sensorErrorReported = false;
+    temperatureReadFailureStreak = 0;
     save();
   }
 
@@ -1185,8 +1196,13 @@ public:
    */
   void stopTemperatureControl()
   {
-    bool changed = mode != "manual" || state || toggleActive || timerActive || timerDuration != 0;
+    bool changed = mode != "manual" || state || toggleActive || timerActive || timerDuration != 0 || !sensorAddress.isEmpty();
     mode = "manual";
+    sensorAddress = "";
+    currentTemperature = NAN;
+    sensorErrorReported = false;
+    temperatureReadFailureStreak = 0;
+    clearTemperatureReadFailure();
     toggleActive = false;
     timerActive = false;
     timerDuration = 0;
@@ -1295,6 +1311,7 @@ public:
         sensorErrorReported = true;
       }
       handleTemperatureReadFailure();
+      clearTemperatureSensorAssignment();
       return;
     }
 
@@ -2089,6 +2106,7 @@ void loop2(void *pvParameters)
   unsigned long leftButtonDownSince = 0;
   bool leftButtonWasDown = false;
   bool buttonsPressed = false;
+  bool previousUseTempSensor = useTempSensor;
 
   for (;;)
   {
@@ -2232,6 +2250,17 @@ void loop2(void *pvParameters)
       lastRtcHealthCheck = currentMillis;
       checkI2CHealth();
     }
+
+    // Clear stale relay assignments once when sensing is enabled again.
+    if (useTempSensor && !previousUseTempSensor)
+    {
+      for (uint8_t i = 0; i < NUM_RELAYS; i++)
+      {
+        if (relays[i]->getMode() == "temperature" || !relays[i]->getSensorAddress().isEmpty())
+          relays[i]->stopTemperatureControl();
+      }
+    }
+    previousUseTempSensor = useTempSensor;
 
     // Refresh the discovered DS18B20 list so removed sensors are detected.
     if (useTempSensor)
